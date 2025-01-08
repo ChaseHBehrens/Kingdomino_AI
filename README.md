@@ -1,7 +1,7 @@
 # Kingdomino AI
 This is an AI that plays the board game kingdomino. 
 ## How it works
-It uses a Greedy algorithm to select the best scoring domino on a given turn. 
+It uses a Greedy algorithm to select the best scoring domino on a given turn. It considers all possible placements of all available domino choices and calculates the score of each corresponding board state. 
 ## Performance
 The AI came third in the both four player matches against humans I tested it with. This was not surprising based on the relative simplicity of the algorithm. 
 ## Improvements 
