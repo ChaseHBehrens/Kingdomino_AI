@@ -1,1 +1,1 @@
-# Kingdomino-AI
+# Kingdomino AI
