@@ -5,7 +5,7 @@ It uses a Greedy algorithm to select the best scoring domino on a given turn. It
 ## Performance
 The AI came third in the both four player matches against humans I tested it with. This was not surprising based on the relative simplicity of the algorithm. 
 ## Improvements 
-This was my first rust program and thus there are several improvements to the structure that would increase readability and maintainability. I would like to implement a better UI and standard engine protocol system so that multiple AI agents could be run against each other. Additionally, some probabilistic calculation for future turns would improve the AIs performance. I plan on implementing a version 2 based on what I've learned from this version.
+This was my first rust program and thus there are several improvements to the structure that would increase readability and maintainability. I would like to implement a better UI and standard engine protocol system so that multiple AI agents could be run against each other. Additionally, some probabilistic calculation for future turns would improve the AI's performance. I plan on implementing a version 2 based on what I've learned from this version.
 <br><br>
 ![image](https://github.com/user-attachments/assets/17ee2982-ed03-483a-b83a-817b639c5966)
 ## Note 
