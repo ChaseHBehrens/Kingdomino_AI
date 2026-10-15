@@ -1,0 +1,159 @@
+//! Plays claude mce, greedy, and mce race against each other in 4, 3 and 2
+//! player games with Middle Kingdom and Harmony, and prints head to head
+//! results for each player count.
+//!   cargo run --bin head_to_head --release [games per player count]
+//!
+//! Every lineup of the bots is played in turn, so each bot sits in each seat
+//! equally often when the number of games is a multiple of the lineup count
+//! (36 lineups in 4 player games, 6 in 3 and 2 player games). In 4 player
+//! games one bot fills two seats; each seat is counted separately.
+use std::{
+    env,
+    sync::{ Mutex, atomic::{ AtomicUsize, Ordering } },
+    thread,
+};
+use kingdomino_ai::{
+    rng,
+    core::{ GameState, game::Rules },
+    evaluators::evaluator,
+    simulation::simulated_deal,
+    user_interface::loading_bar,
+};
+
+const BOTS: &[&str] = &["claude mce", "greedy", "mce race"];
+/// Both bonus rules: Middle Kingdom and Harmony
+type Bonuses = Rules<true, true>;
+
+/// Every assignment of bots to N seats in which each bot plays, or each pair
+/// of different bots in 2 player games
+fn lineups<const N: usize>() -> Vec<[usize; N]> {
+    let bots = BOTS.len();
+    (0..bots.pow(N as u32))
+        .map(|code| std::array::from_fn(|seat| code / bots.pow(seat as u32) % bots))
+        .filter(|lineup: &[usize; N]| {
+            let playing = (0..bots).filter(|b| lineup.contains(b)).count();
+            playing == bots.min(N)
+        })
+        .collect()
+}
+
+/// Plays the given number of games over all lineups, using every core, and
+/// returns each game's lineup and scores
+fn play<const N: usize, const S: usize>(games: usize) -> Vec<([usize; N], [u32; N])> {
+    let lineups = lineups::<N>();
+    let next = AtomicUsize::new(0);
+    let results = Mutex::new(Vec::with_capacity(games));
+    let threads = thread::available_parallelism().map_or(1, |n| n.get());
+    loading_bar(0, games);
+    thread::scope(|scope| {
+        for _ in 0..threads {
+            scope.spawn(|| loop {
+                let game = next.fetch_add(1, Ordering::Relaxed);
+                if game >= games { break; }
+                let lineup = lineups[game % lineups.len()];
+                let mut state = GameState::<N, S, Bonuses>::new(simulated_deal);
+                state.play_out(simulated_deal, lineup.map(|b| evaluator(BOTS[b])));
+                let scores = std::array::from_fn(|seat| state.score(seat));
+                let mut results = results.lock().unwrap();
+                results.push((lineup, scores));
+                loading_bar(results.len(), games);
+            });
+        }
+    });
+    println!();
+    results.into_inner().unwrap()
+}
+
+/// Mean and standard error of the mean
+fn mean_se(values: &[f64]) -> (f64, f64) {
+    let n = values.len() as f64;
+    let mean = values.iter().sum::<f64>() / n;
+    let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
+    (mean, (variance / n).sqrt())
+}
+
+fn report<const N: usize>(results: &[([usize; N], [u32; N])]) {
+    let bots = BOTS.len();
+    let mut scores = vec![Vec::new(); bots];
+    let mut wins = vec![0.0; bots];
+    let mut places = vec![0.0; bots];
+    // [row][column]: wins, ties and score margins of row's seats against column's
+    let mut pair_wins = vec![vec![0.0; bots]; bots];
+    let mut pair_margins = vec![vec![Vec::new(); bots]; bots];
+
+    for (lineup, score) in results {
+        let best = *score.iter().max().unwrap();
+        let first = score.iter().filter(|&&s| s == best).count() as f64;
+        for a in 0..N {
+            let bot = lineup[a];
+            scores[bot].push(score[a] as f64);
+            if score[a] == best { wins[bot] += 1.0 / first; }
+            let above = score.iter().filter(|&&s| s > score[a]).count() as f64;
+            let level = score.iter().filter(|&&s| s == score[a]).count() as f64;
+            places[bot] += 1.0 + above + (level - 1.0) / 2.0;
+            for b in 0..N {
+                let other = lineup[b];
+                if other == bot { continue; }
+                pair_wins[bot][other] += if score[a] > score[b] { 1.0 } else if score[a] == score[b] { 0.5 } else { 0.0 };
+                pair_margins[bot][other].push(score[a] as f64 - score[b] as f64);
+            }
+        }
+    }
+
+    println!("{:<10} | {:>5} | {:>13} | {:>9} | {:>9}", "bot", "seats", "score", "1st place", "avg place");
+    for b in 0..bots {
+        let seats = scores[b].len();
+        if seats == 0 { continue; }
+        let (mean, se) = mean_se(&scores[b]);
+        println!(
+            "{:<10} | {:>5} | {:>6.2} ± {:<4.2} | {:>8.1}% | {:>9.2}",
+            BOTS[b], seats, mean, se,
+            100.0 * wins[b] / seats as f64,
+            places[b] / seats as f64,
+        );
+    }
+
+    println!();
+    println!("Head to head: how often the row bot outscores the column bot (ties count half), and the average margin");
+    print!("{:<10}", "");
+    for b in 0..bots { print!(" | {:^22}", BOTS[b]); }
+    println!();
+    for a in 0..bots {
+        print!("{:<10}", BOTS[a]);
+        for b in 0..bots {
+            let margins = &pair_margins[a][b];
+            if margins.is_empty() {
+                print!(" | {:^22}", "-");
+                continue;
+            }
+            let (margin, se) = mean_se(margins);
+            let rate = 100.0 * pair_wins[a][b] / margins.len() as f64;
+            print!(" | {:>5.1}% {:>+7.2} ± {:<5.2}", rate, margin, se);
+        }
+        println!();
+    }
+    println!();
+}
+
+fn main() {
+    rng::init();
+    let games: usize = match env::args().nth(1) {
+        Some(arg) => arg.parse().unwrap_or_else(|_| {
+            eprintln!("Invalid number provided, defaulting to 36 games.");
+            36
+        }),
+        None => 36,
+    };
+
+    println!("4 players, Middle Kingdom + Harmony, {games} games");
+    let results = play::<4, 4>(games);
+    report(&results);
+
+    println!("3 players, Middle Kingdom + Harmony, {games} games");
+    let results = play::<3, 3>(games);
+    report(&results);
+
+    println!("2 players, Middle Kingdom + Harmony, {games} games");
+    let results = play::<2, 4>(games);
+    report(&results);
+}

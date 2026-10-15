@@ -1,0 +1,393 @@
+//! Claude evaluator: a cheap one-ply heuristic intended as a rollout policy
+//! inside Monte Carlo search. Everything is a handful of bitboard operations
+//! on top of the board score, plus:
+//!
+//! - A look ahead at the next round: the position taken in the draw pile is
+//!   our pick order next round, so each move is credited with the expected
+//!   best gain among the dominoes we will get to choose from, estimated from
+//!   what is left in the deck.
+//! - The shape of the kingdom regardless of landscape: a short perimeter, and
+//!   no closed off empty regions that can't be tiled by dominoes.
+//! - Landscape priorities for the rest of the game: area that can still grow
+//!   is worth more in landscapes with many crowns left in the deck, and crowns
+//!   in landscapes with many squares left, discounted by how much the
+//!   opponents are building the same landscape.
+//! - A denial term that rewards taking the domino an opponent picking later
+//!   this round wants most. In two player games the opponent's loss is our
+//!   gain, so we deny every round, valuing their options with the full
+//!   heuristic. With more players the cost of taking a worse domino falls on
+//!   us alone while the damage is shared out, so we only deny in the final
+//!   round, where the lost points are certain and can't be made up later.
+use crate::core::{ GameState, Ruleset, Turn, Board, file, rank, DOMINOES };
+
+const FULL: u32 = 0x1FFFFFF;
+
+// Weights, in units of 1/16 of a point
+const SCORE: i32 = 16;
+const HOLE: i32 = 12;
+const ISOLATED: i32 = 8;
+const CROWNS_OPEN: i32 = 8;
+const FLEXIBILITY: i32 = 2;
+const PERIMETER: i32 = 6;
+const ENCLOSED_WASTE: i32 = 16;
+const NEXT_PICK: f32 = 16.0;
+const LANDSCAPE_PRIORITY: f32 = 4.0;
+const HARMONY: i32 = 20;
+const MIDDLE_KINGDOM: i32 = 96;
+const POSITION: i32 = 4;
+
+const TAKEN: u8 = u8::MAX;
+
+/// Squares of one colour on a checkerboard
+const DARK: u32 = {
+    let mut m = 0;
+    let mut sq = 0;
+    while sq < 25 {
+        if (sq / 5 + sq % 5) % 2 == 0 { m |= 1 << sq; }
+        sq += 1;
+    }
+    m
+};
+
+/// The dominoes left in the deck, grouped by kind
+#[derive(Clone, Copy)]
+pub struct Deck {
+    /// (first landscape, second landscape, crowns, how many are left)
+    kinds: [(u8, u8, u8, u8); 48],
+    len: usize,
+    total: usize,
+}
+
+impl Deck {
+    pub fn empty() -> Self {
+        Deck { kinds: [(0, 0, 0, 0); 48], len: 0, total: 0 }
+    }
+
+    pub fn new<const N: usize, const S: usize, R: Ruleset>(state: &GameState<N, S, R>) -> Self {
+        let mut d = Deck::empty();
+        let mut deck = state.deck;
+        while deck != 0 {
+            let dom = DOMINOES[deck.trailing_zeros() as usize];
+            let kind = (dom.0 as u8, dom.1 as u8, dom.2);
+            match d.kinds[..d.len].iter_mut().find(|k| (k.0, k.1, k.2) == kind) {
+                Some(k) => k.3 += 1,
+                None => {
+                    d.kinds[d.len] = (kind.0, kind.1, kind.2, 1);
+                    d.len += 1;
+                }
+            }
+            d.total += 1;
+            deck &= deck - 1;
+        }
+        d
+    }
+}
+
+/// Binomial coefficients C(n, k) for every deck size n and pick count k
+const CHOOSE: [[f32; 5]; 49] = {
+    let mut t = [[0.0; 5]; 49];
+    let mut n = 0;
+    while n < 49 {
+        let mut k = 0;
+        while k < 5 && k <= n {
+            let mut c: u64 = 1;
+            let mut i = 0;
+            while i < k {
+                c = c * (n - i) as u64 / (i + 1) as u64;
+                i += 1;
+            }
+            t[n][k] = c as f32;
+            k += 1;
+        }
+        n += 1;
+    }
+    t
+};
+
+/// Orthogonal neighbors of a set of squares
+#[inline(always)]
+fn dilate(s: u32) -> u32 {
+    (((s >> 1) & !file::E) | ((s << 1) & !file::A) | (s << 5) | (s >> 5)) & FULL
+}
+
+/// Empty squares that have at least one empty orthogonal neighbor, counting
+/// squares outside the window when the kingdom can still extend that way
+#[inline(always)]
+fn fillable(empty: u32, occupied: u32) -> u32 {
+    let mut nb = dilate(empty);
+    if occupied & file::E == 0 { nb |= file::A; }
+    if occupied & file::A == 0 { nb |= file::E; }
+    if occupied & rank::FIVE == 0 { nb |= rank::ONE; }
+    if occupied & rank::ONE == 0 { nb |= rank::FIVE; }
+    empty & nb
+}
+
+/// Kingdom edges that face empty squares: compact kingdoms leave fewer
+/// awkward gaps to fill
+#[inline(always)]
+fn perimeter(occupied: u32, empty: u32) -> i32 {
+    ((occupied & (empty >> 1) & !file::E).count_ones()
+        + (occupied & (empty << 1) & !file::A).count_ones()
+        + (occupied & (empty << 5)).count_ones()
+        + (occupied & (empty >> 5)).count_ones()) as i32
+}
+
+/// Squares that empty regions closed off by the kingdom must leave unfilled.
+/// Every domino covers one square of each checkerboard colour, so a closed
+/// region wastes at least the difference between its two colours.
+#[inline(always)]
+fn enclosed_waste(occupied: u32, empty: u32) -> i32 {
+    // Edges the kingdom can still grow past, and empty edge lines it may never use
+    let mut open = 0;
+    for (edge, opposite) in [(file::A, file::E), (file::E, file::A), (rank::ONE, rank::FIVE), (rank::FIVE, rank::ONE)] {
+        if occupied & opposite == 0 || occupied & edge == 0 { open |= edge; }
+    }
+    let flood = |mut region: u32| loop {
+        let grown = (region | dilate(region)) & empty;
+        if grown == region { return region; }
+        region = grown;
+    };
+    let mut closed = empty & !flood(empty & open);
+    let mut waste = 0;
+    while closed != 0 {
+        let region = flood(closed & closed.wrapping_neg());
+        waste += ((region & DARK).count_ones() as i32 - (region & !DARK).count_ones() as i32).abs();
+        closed &= !region;
+    }
+    waste
+}
+
+/// Returns true if the castle can still end up in the center of the kingdom
+#[inline(always)]
+fn middle_possible(castle: u32, occupied: u32) -> bool {
+    let sq = castle.trailing_zeros();
+    let (c, r) = (sq % 5, sq / 5);
+    let files = [file::A, file::B, file::C, file::D, file::E];
+    let ranks = [rank::ONE, rank::TWO, rank::THREE, rank::FOUR, rank::FIVE];
+    let (mut min_c, mut max_c, mut min_r, mut max_r) = (c, c, r, r);
+    for i in 0..5u32 {
+        if occupied & files[i as usize] != 0 { min_c = min_c.min(i); max_c = max_c.max(i); }
+        if occupied & ranks[i as usize] != 0 { min_r = min_r.min(i); max_r = max_r.max(i); }
+    }
+    c - min_c <= 2 && max_c - c <= 2 && r - min_r <= 2 && max_r - r <= 2
+}
+
+/// Per landscape totals that the next round look ahead depends on
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Shape {
+    area: [u8; 6],
+    crowns: [u8; 6],
+    growable: [bool; 6],
+}
+
+/// Heuristic value of a board on its own, in units of 1/16 of a point
+#[inline(always)]
+pub fn claude_heuristic<R: Ruleset>(board: &Board) -> i32 {
+    evaluate::<R>(board).0
+}
+
+/// Heuristic value of a board without the look ahead, and its shape
+#[inline(always)]
+fn evaluate<R: Ruleset>(board: &Board) -> (i32, Shape) {
+    let occupied = board.occupied();
+    let castle = (0..6).fold(FULL, |a, l| a & board.landscape(l));
+    let empty = !occupied & FULL;
+    let open = fillable(empty, occupied);
+    let holes = (empty & !open).count_ones() as i32;
+
+    let mut v = SCORE * board.score() as i32
+        - HOLE * holes
+        + FLEXIBILITY * (dilate(occupied) & open).count_ones() as i32;
+    let mut shape = Shape { area: [0; 6], crowns: [0; 6], growable: [false; 6] };
+    for l in 0..6 {
+        let squares = board.landscape(l) & !castle;
+        let crowns = board.crowns_on_landscape(l);
+        shape.area[l] = squares.count_ones() as u8;
+        shape.crowns[l] = crowns as u8;
+        shape.growable[l] = dilate(squares) & open != 0;
+        // Squares that can never join a region of their own landscape
+        v -= ISOLATED * (squares & !dilate(squares)).count_ones() as i32;
+        // Crowned landscapes that can still grow
+        if shape.growable[l] { v += CROWNS_OPEN * crowns as i32; }
+    }
+    v -= PERIMETER * perimeter(occupied, empty) + ENCLOSED_WASTE * enclosed_waste(occupied, empty);
+    if R::HARMONY && holes == 0 { v += HARMONY; }
+    if R::MIDDLE_KINGDOM && middle_possible(castle, occupied) { v += MIDDLE_KINGDOM; }
+    (v, shape)
+}
+
+/// What the look ahead needs to know about the rest of the game
+struct Context {
+    deck: Deck,
+    /// Squares and crowns of each landscape left in the deck
+    squares: [i32; 6],
+    crowns: [i32; 6],
+    /// Share of each landscape's future dominoes we can expect to get, given
+    /// how much the opponents are building it
+    share: [f32; 6],
+    players: f32,
+}
+
+impl Context {
+    fn new<const N: usize, const S: usize, R: Ruleset>(state: &GameState<N, S, R>) -> Self {
+        let deck = Deck::new(state);
+        let mut squares = [0; 6];
+        let mut crowns = [0; 6];
+        for &(l0, l1, c, n) in &deck.kinds[..deck.len] {
+            squares[l0 as usize] += n as i32;
+            squares[l1 as usize] += n as i32;
+            crowns[l0 as usize] += (c * n) as i32;
+        }
+
+        // Opponents compete for a landscape they can still grow, more so the
+        // bigger and more crowned it is
+        let active = state.player_order[0] as usize;
+        let mut demand = [0i32; 6];
+        for o in (0..N).filter(|&o| o != active) {
+            let shape = evaluate::<R>(&state.boards[o]).1;
+            for l in 0..6 {
+                if shape.growable[l] && shape.area[l] > 0 {
+                    demand[l] += shape.area[l] as i32 / 2 + shape.crowns[l] as i32;
+                }
+            }
+        }
+        let share = demand.map(|d| 1.0 / (1.0 + d as f32));
+        Context { deck, squares, crowns, share, players: N as f32 }
+    }
+
+    /// Look ahead value of a board shape, in units of 1/16 of a point, when
+    /// we will choose from `choices` dominoes next round
+    fn ahead(&self, shape: &Shape, choices: usize) -> i32 {
+        let mut priority = 0.0;
+        for l in 0..6 {
+            if !shape.growable[l] { continue; }
+            let prospects = shape.area[l] as i32 * self.crowns[l] + shape.crowns[l] as i32 * self.squares[l];
+            priority += prospects as f32 * self.share[l];
+        }
+        next_pick(shape, &self.deck, choices) + (LANDSCAPE_PRIORITY * priority / self.players) as i32
+    }
+}
+
+/// Expected best gain, in units of 1/16 of a point, among `choices` random
+/// dominoes left in `deck`
+fn next_pick(shape: &Shape, deck: &Deck, choices: usize) -> i32 {
+    if choices == 0 || deck.total == 0 { return 0; }
+    let area = shape.area.map(|a| a as i32);
+    let crowns = shape.crowns.map(|c| c as i32);
+    let growable = shape.growable;
+
+    // Rough points each kind of domino left in the deck would add
+    let mut gains = [(0i32, 0usize); 48];
+    for (g, &(l0, l1, c, n)) in gains.iter_mut().zip(&deck.kinds[..deck.len]) {
+        let (l0, l1, c) = (l0 as usize, l1 as usize, c as i32);
+        let g0 = if growable[l0] {
+            (area[l0] + 1) * (crowns[l0] + c) - area[l0] * crowns[l0]
+        } else { c };
+        let g1 = if growable[l1] { crowns[l1] } else { 0 };
+        *g = (if l0 == l1 { g0 + crowns[l0] + c } else { g0 + g1 }, n as usize);
+    }
+    // The best of k draws is in a group when all draws avoid the dominoes
+    // ranked above it but not all of them avoid the group
+    let gains = &mut gains[..deck.len];
+    gains.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+    let k = choices.min(deck.total);
+    let mut rest = deck.total;
+    let mut expected = 0.0;
+    for &(gain, n) in gains.iter() {
+        expected += gain as f32 * (CHOOSE[rest][k] - CHOOSE[rest - n][k]);
+        rest -= n;
+    }
+    (NEXT_PICK * expected / CHOOSE[deck.total][k]) as i32
+}
+
+/// Adds to `denial` what taking each domino costs `player`: the best gain
+/// they can get from the draw pile minus their second best gain
+fn deny<const N: usize, const S: usize, R: Ruleset>(
+    state: &GameState<N, S, R>,
+    player: usize,
+    eval: impl Fn(&Board) -> i32,
+    denial: &mut [i32; S],
+) {
+    let board = &state.boards[player];
+    let base = eval(board);
+    let (mut best, mut second, mut best_pos) = (i32::MIN, i32::MIN, 0);
+    for (pos, &d) in state.draw_pile.iter().enumerate() {
+        if d == TAKEN { continue; }
+        let mut gain = i32::MIN;
+        board.placements(DOMINOES[d as usize], |b| gain = gain.max(eval(&b) - base));
+        // A domino that can't be placed is discarded
+        if gain == i32::MIN { gain = 0; }
+        if gain > best {
+            second = best;
+            best = gain;
+            best_pos = pos;
+        } else if gain > second {
+            second = gain;
+        }
+    }
+    if second != i32::MIN { denial[best_pos] += best - second; }
+}
+
+/// Denial bonus for each draw pile position
+fn denial<const N: usize, const S: usize, R: Ruleset>(
+    state: &GameState<N, S, R>,
+) -> [i32; S] {
+    let mut denial = [0; S];
+    if N != 2 && state.deck != 0 { return denial; }
+    let active = state.player_order[0] as usize;
+    let untaken = state.draw_pile.iter().filter(|&&d| d != TAKEN).count();
+
+    let mut seen = [false; N];
+    seen[active] = true;
+    for &p in &state.player_order[1..untaken] {
+        let p = p as usize;
+        if seen[p] { continue; }
+        seen[p] = true;
+        if N == 2 {
+            deny(state, p, claude_heuristic::<R>, &mut denial);
+        } else {
+            deny(state, p, |b| 16 * b.score() as i32, &mut denial);
+        }
+    }
+    denial
+}
+
+/// Values of each turn, in units of 1/16 of a point
+pub fn claude_values<'a, const N: usize, const S: usize, R: Ruleset>(
+    state: &GameState<N, S, R>,
+    turns: &'a [Turn],
+) -> impl Iterator<Item = i32> + 'a {
+    let denial = denial(state);
+    let context = Context::new(state);
+    // Most moves share a shape with another one, so cache the look ahead
+    let mut cache: Vec<(Shape, usize, i32)> = Vec::with_capacity(32);
+    turns.iter().map(move |turn| {
+        let (v, shape) = evaluate::<R>(&turn.board);
+        // Earlier picks in the draw pile choose first next round
+        let choices = S - turn.position;
+        let ahead = match cache.iter().find(|c| c.0 == shape && c.1 == choices) {
+            Some(c) => c.2,
+            None => {
+                let ahead = context.ahead(&shape, choices);
+                cache.push((shape, choices, ahead));
+                ahead
+            }
+        };
+        v + ahead - POSITION * turn.position as i32 + denial[turn.position]
+    })
+}
+
+pub fn claude<const N: usize, const S: usize, R: Ruleset>(
+    state: &GameState<N, S, R>,
+    turns: &[Turn],
+) -> usize {
+    let mut best_i = 0;
+    let mut best = i32::MIN;
+    for (i, v) in claude_values(state, turns).enumerate() {
+        if v > best {
+            best = v;
+            best_i = i;
+        }
+    }
+    best_i
+}
