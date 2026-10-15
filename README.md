@@ -3,7 +3,9 @@ This project contains several high performance AI bots for the board game Kingdo
 
 ## Usage
 To play against an AI bot simply download the latest release of the project. 
+You will also need a terminal that supports icons for visuals to render properly.
 Claude MCE is the strongest AI bot included. 
+<img width="1358" height="525" alt="image" src="https://github.com/user-attachments/assets/b7e0a0dd-3508-4130-a068-75b6e8b3fe37" />
 
 ## About 
 Kingdomino is a game in which you draft dominoes into a 5x5 grid with the aim of creating large continuous areas. 
