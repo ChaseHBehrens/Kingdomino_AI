@@ -5,7 +5,7 @@
 //! of the selected domino, running on into the next domino at either end.
 //! Up and down switch domino, jumping to its first placement.
 use std::io::{ self, Write };
-use std::sync::Mutex;
+use std::sync::{ Mutex, atomic::{ AtomicBool, Ordering } };
 use crossterm::{ event::{ self, Event, KeyCode, KeyEventKind, KeyModifiers }, terminal };
 use crate::core::{ Board, GameState, Landscape, Ruleset, Turn, DOMINOES };
 
@@ -29,14 +29,23 @@ const LAKE: char = '\u{F078D}';
 const SWAMP: char = '\u{EDF8}';
 const CASTLE: char = '\u{F011A}';
 
+/// Whether squares are drawn with Nerd Font icons rather than letters
+static ICONS: AtomicBool = AtomicBool::new(true);
 /// Names shown for each seat
 static NAMES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 /// For each seat, the boards as they were at the end of its last turn
 static PREVIOUS: Mutex<Vec<Vec<Board>>> = Mutex::new(Vec::new());
 
-/// Sets the names shown for each seat
+/// Draws squares with Nerd Font icons, or with letters for terminals whose
+/// font doesn't have the icons
+pub fn set_icons(icons: bool) {
+    ICONS.store(icons, Ordering::Relaxed);
+}
+
+/// Sets the names shown for each seat at the start of a game
 pub fn set_player_names(names: Vec<String>) {
     *NAMES.lock().unwrap() = names;
+    PREVIOUS.lock().unwrap().clear();
 }
 
 fn player_name(p: usize) -> String {
@@ -62,17 +71,40 @@ fn paint(l: Landscape, text: &str) -> String {
     format!("{}{text}{RESET}", color(l))
 }
 
-fn icon(l: Landscape) -> char {
-    match l {
-        Landscape::Farm => FARM,
-        Landscape::Field => FIELD,
-        Landscape::Forest => FOREST,
-        Landscape::Mine => MINE,
-        Landscape::Lake => LAKE,
-        Landscape::Swamp => SWAMP,
-        Landscape::Castle => CASTLE,
-        Landscape::None => '·',
+/// The character drawn for a landscape: a Nerd Font icon, or a letter
+fn glyph(l: Landscape, icons: bool) -> char {
+    match (l, icons) {
+        (Landscape::Farm, true) => FARM,
+        (Landscape::Field, true) => FIELD,
+        (Landscape::Forest, true) => FOREST,
+        (Landscape::Mine, true) => MINE,
+        (Landscape::Lake, true) => LAKE,
+        (Landscape::Swamp, true) => SWAMP,
+        (Landscape::Castle, true) => CASTLE,
+        (Landscape::Farm, false) => 'W',
+        (Landscape::Field, false) => 'F',
+        (Landscape::Forest, false) => 'T',
+        (Landscape::Mine, false) => 'M',
+        (Landscape::Lake, false) => 'L',
+        (Landscape::Swamp, false) => 'S',
+        (Landscape::Castle, false) => 'C',
+        (Landscape::None, _) => '·',
     }
+}
+
+fn icon(l: Landscape) -> char {
+    glyph(l, ICONS.load(Ordering::Relaxed))
+}
+
+/// Every landscape and the castle in one style, to check the terminal can
+/// show it
+pub fn glyph_sample(icons: bool) -> String {
+    [
+        Landscape::Farm, Landscape::Field, Landscape::Forest, Landscape::Mine,
+        Landscape::Lake, Landscape::Swamp, Landscape::Castle,
+    ].iter()
+        .map(|&l| paint(l, &format!("{} ", glyph(l, icons))))
+        .collect()
 }
 
 /// Squares and crowns of each landscape on the dominoes still to come: those

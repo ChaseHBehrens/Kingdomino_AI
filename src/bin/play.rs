@@ -6,7 +6,7 @@ use kingdomino_ai::{
     core::{ Board, GameState, Landscape, Ruleset, Turn, game::{ run, Rules } },
     evaluators::evaluator,
     simulation::simulated_deal,
-    user_interface::{ human, set_player_names, show_results, user_deal },
+    user_interface::{ glyph_sample, human, set_icons, set_player_names, show_results, user_deal },
 };
 
 /// Save every game to LOG_FILE, to study how people play. Each line is one
@@ -29,9 +29,11 @@ const BOTS: &[&str] = &[
     "claude mce",
     "mce race",
     "mce score",
+    "mce eoh",
     "claude",
     "eoh",
     "greedy",
+    "nn score",
     "random",
 ];
 
@@ -220,9 +222,18 @@ fn log_end(results: &[(Board, u32)]) {
     ]));
 }
 
-fn main() {
-    rng::init();
+/// Players, rules and dealer of a game, kept to play it again
+struct Setup {
+    players: usize,
+    middle: bool,
+    harmony: bool,
+    entered: bool,
+    names: Vec<String>,
+    bots: Vec<Option<String>>,
+}
 
+/// Asks how the game is set up
+fn setup() -> Setup {
     let players = answer(Select::new("How many players?", vec![2, 3, 4]).with_starting_cursor(2).prompt());
     let bonuses = answer(MultiSelect::new("Bonus rules?", vec!["Middle Kingdom (+10)", "Harmony (+5)"])
         .with_help_message("space to toggle, enter to confirm")
@@ -247,8 +258,14 @@ fn main() {
             bots.push(Some(who.to_string()));
         }
     }
-    if LOG_GAMES { log_start(players, middle, harmony, entered, &names, &bots); }
-    set_player_names(names);
+    Setup { players, middle, harmony, entered, names, bots }
+}
+
+/// Plays a game and shows the results
+fn play_game(setup: &Setup) {
+    let Setup { players, middle, harmony, entered, ref names, ref bots } = *setup;
+    if LOG_GAMES { log_start(players, middle, harmony, entered, names, bots); }
+    set_player_names(names.clone());
 
     let results = match (players, middle, harmony) {
         (2, false, false) => play::<2, 4, Rules<false, false>>(&bots, entered),
@@ -265,4 +282,33 @@ fn main() {
         _ => play::<4, 4, Rules<true, true>>(&bots, entered),
     };
     show_results(&results);
+}
+
+fn main() {
+    rng::init();
+
+    // The icons need a Nerd Font, which a program can't detect, so show both
+    // styles and let the person pick. Windows terminals rarely have one.
+    let styles = vec![
+        format!("Icons    {}", glyph_sample(true)),
+        format!("Letters  {}", glyph_sample(false)),
+    ];
+    let style = answer(Select::new("Display as icons or letters?", styles)
+        .with_starting_cursor(if cfg!(windows) { 1 } else { 0 })
+        .with_help_message("choose Letters if the icons show as boxes or question marks")
+        .raw_prompt());
+    set_icons(style.index == 0);
+
+    loop {
+        let setup = setup();
+        loop {
+            play_game(&setup);
+            let options = vec!["Play again", "Back to game setup", "Quit"];
+            match answer(Select::new("What next?", options).raw_prompt()).index {
+                0 => continue,
+                1 => break,
+                _ => return,
+            }
+        }
+    }
 }
