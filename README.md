@@ -12,7 +12,7 @@ There are several aspects of this game that make it an interesting problem.
 - A known finite depth of a maximum of 12 turns
 - A very high branching factor caused by combinations of placements and the arrangement of the deck
 - Unknown information about future drafts
-- Multiplayer and adversarial
+- Multiplayer adversarial rules
 
 This project uses Monte Carlo evaluation search combined with heuristic functions. 
 Monte Carlo evaluation has been found to perform well for the game of Kingdomino. 
@@ -22,8 +22,8 @@ This allows for the analysis of thousands of positions in milliseconds.
 
 Claude Opus 5.5 was used to generate code for three areas of the project.
 - Test scripts for measuring evaluator performance
-- User terminal user interface
-- Claude evolution functions where it made improvements to my existing evaluators
+- Terminal user interface
+- Claude evaluation functions where it made improvements to my existing evaluators
 
 ## Results
 
