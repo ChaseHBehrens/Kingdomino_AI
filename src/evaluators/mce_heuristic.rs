@@ -11,7 +11,7 @@
 use crate::core::{ Board, GameState, Ruleset, Turn };
 use crate::rng::rng;
 use crate::simulation::simulated_deal;
-use super::claude::{ claude, claude_values };
+use super::claude_heuristic::{ claude, claude_values };
 
 /// Points of heuristic value that make a move e times less likely for an
 /// opponent in a rollout
@@ -57,7 +57,7 @@ fn final_values<const N: usize, const S: usize, R: Ruleset>(
 
 /// Rollout policy for opponents: a move picked at random with probability
 /// proportional to exp(value / OPPONENT_SPREAD)
-fn opponent<const N: usize, const S: usize, R: Ruleset>(
+pub fn opponent<const N: usize, const S: usize, R: Ruleset>(
     state: &GameState<N, S, R>,
     turns: &[Turn],
 ) -> usize {
@@ -78,7 +78,7 @@ fn opponent<const N: usize, const S: usize, R: Ruleset>(
     values.len() - 1
 }
 
-pub fn claude_mce<const N: usize, const S: usize, R: Ruleset>(
+pub fn mce_heuristic<const N: usize, const S: usize, R: Ruleset>(
     state: &GameState<N, S, R>,
     turns: &[Turn],
 ) -> usize {

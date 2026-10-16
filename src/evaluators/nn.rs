@@ -1,4 +1,3 @@
-//! Neural Network Evaluators
 use crate::core::{ GameState, Ruleset, Turn, Board, Landscape, DOMINOES };
 use std::cell::RefCell;
 

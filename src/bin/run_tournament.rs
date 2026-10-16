@@ -1,3 +1,4 @@
+//! File Generated Partly With Claude Opus 5.5
 use std:: {
     cell::Cell,
     cmp::Ordering,
@@ -24,8 +25,8 @@ const EVALUATORS: &[&str] = &[
     "mce eoh",
     "nn score",
     "eoh",
-    "claude mce",
-    "claude",
+    "mce heuristic",
+    "claude heuristic",
 ];
 
 const DEFAULT_MU: f64 = 25.0;
@@ -156,7 +157,7 @@ fn play_game(players: &[Player]) {
             evaluator(&players[seats[2]].name),
             evaluator(&players[seats[3]].name),
         ],
-        //additional_rules: [MIDDLE_KINGDOM, HARMONY],
+        additional_rules: [MIDDLE_KINGDOM, HARMONY],
     ).map(|(_board, score)| score);
     rate(players, seats, scores);
 }

@@ -3,12 +3,9 @@ use kingdomino_ai::run_game;
 use kingdomino_ai::user_interface::display_board;
 use kingdomino_ai::simulation::simulated_deal;
 use kingdomino_ai::evaluators::{ 
-    random, 
-    greedy, 
     mce_score, 
-    mce_place, 
+    mce_heuristic, 
     mce_race,
-    mce_race_nn_score,
     eoh_trained,
 };
 
@@ -28,7 +25,7 @@ fn main() {
     
     let game = run_game!(
         dealer: simulated_deal, 
-        players: [eoh_trained, eoh_trained, eoh_trained, eoh_trained],
+        players: [mce_heuristic, eoh_trained, mce_race, mce_score],
         additional_rules: [MIDDLE_KINGDOM, HARMONY],
     );
     for (i, (board, score)) in game.iter().enumerate() {

@@ -1,7 +1,7 @@
 use std::arch::x86_64::_pdep_u64;
 use crate::rng::rng;
 
-
+/// Returns the index of a domino drawn at random
 pub fn simulated_deal(contents: u64) -> u8 {
     let k = rng(contents.count_ones());
     #[cfg(target_feature = "bmi2")]
@@ -15,3 +15,4 @@ pub fn simulated_deal(contents: u64) -> u8 {
         m.trailing_zeros() as u8
     }
 }
+

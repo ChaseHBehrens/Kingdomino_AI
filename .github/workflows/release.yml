@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -50,7 +50,26 @@ jobs:
             cp target/${{ matrix.target }}/release/play dist/${{ matrix.asset_name }}
           fi
 
-      - name: Upload Release Asset
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: dist/${{ matrix.asset_name }}
+
+  # One job publishes the release once every build has finished, so the
+  # release notes are generated once and no release is missing a binary
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*

@@ -27,6 +27,7 @@ impl<const MK: bool, const H: bool> Ruleset for Rules<MK, H> {
 
 pub struct GameOver;
 
+/// Represents a game position
 #[derive(Clone, Copy)]
 pub struct GameState<const N: usize, const S: usize, R: Ruleset> {
     pub deck: u64,
@@ -49,6 +50,7 @@ impl<const N: usize, const S: usize, R: Ruleset> GameState<N, S, R> {
         }
     }
 
+    /// Fills a turn buffer with possible turns
     pub fn possible_turns_into(&self, turns: &mut Vec<Turn>) {
         turns.clear();
         let board = &self.boards[self.player_order[0] as usize]; 
@@ -70,12 +72,14 @@ impl<const N: usize, const S: usize, R: Ruleset> GameState<N, S, R> {
         }
     }
     
+    /// Returns a Vector of all possible turns
     pub fn possible_turns(&self) -> Vec<Turn> {
         let mut turns = Vec::with_capacity(256);
         self.possible_turns_into(&mut turns);
         turns
     }
 
+    /// Updates GameState based on a given Turn
     pub fn play_turn(&mut self, turn: Turn) {
         let active = self.player_order[0] as usize;
         self.boards[active] = turn.board;
@@ -89,6 +93,7 @@ impl<const N: usize, const S: usize, R: Ruleset> GameState<N, S, R> {
         self.player_order[i] = active as u8;
     }
 
+    /// Plays a game to completion given a set of evaluators
     pub fn play_out(
         &mut self,
         dealer: fn(u64) -> u8,
@@ -112,6 +117,7 @@ impl<const N: usize, const S: usize, R: Ruleset> GameState<N, S, R> {
         }
     }
 
+    /// Returns the current score of the given player index
     pub fn score(&self, player: usize) -> u32 {
         let board = self.boards[player];
         let mut score = board.score();

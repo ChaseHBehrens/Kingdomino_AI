@@ -3,7 +3,7 @@ This project contains several high performance AI bots for the board game Kingdo
 
 ## Usage
 To play against an AI bot simply download the latest release of the project. 
-Claude MCE is the strongest AI bot included. 
+MCE Heuristic is the strongest AI bot included. 
 <img width="1358" height="525" alt="image" src="https://github.com/user-attachments/assets/b7e0a0dd-3508-4130-a068-75b6e8b3fe37" />
 
 ## About 
@@ -23,7 +23,7 @@ This allows for the analysis of thousands of positions in milliseconds.
 Claude Opus 5.5 was used to generate code for three areas of the project.
 - Test scripts for measuring evaluator performance
 - Terminal user interface
-- Claude evaluation functions where it made improvements to my existing evaluators
+- MCE Heuristic and Claude Heuristic evaluation functions where it made improvements to my existing evaluators
 
 ## Results
 
@@ -35,7 +35,7 @@ Every bot was timed on the same positions: every decision of one game per player
 |:--|--:|--:|--:|--:|
 | Random | 7.4 ns | 7.0 ns | 7.2 ns | 7.9 ns |
 | Greedy | 0.5 µs | 0.4 µs | 0.4 µs | 1.6 µs |
-| Claude | 2.3 µs | 1.8 µs | 3.4 µs | 6.4 µs |
+| Claude Heuristic | 2.3 µs | 1.8 µs | 3.4 µs | 6.4 µs |
 | EOH | 7.8 µs | 6.8 µs | 11.6 µs | 25.4 µs |
 | NN Score | 476.4 µs | 384.3 µs | 478.0 µs | 1.5 ms |
 | MCE Halving | 17.2 ms | 9.8 ms | 8.4 ms | 87.5 ms |
@@ -44,19 +44,19 @@ Every bot was timed on the same positions: every decision of one game per player
 | MCE Place | 28.8 ms | 16.0 ms | 13.0 ms | 144.0 ms |
 | MCE EOH | 30.8 ms | 19.7 ms | 14.7 ms | 94.1 ms |
 | MCE Race | 33.9 ms | 46.8 ms | 34.0 ms | 194.6 ms |
-| Claude MCE | 149.0 ms | 78.0 ms | 79.8 ms | 410.0 ms |
+| MCE Heuristic | 149.0 ms | 78.0 ms | 79.8 ms | 410.0 ms |
 | MCE NN | 1.19 s | 748.8 ms | 550.1 ms | 3.14 s |
 
 ### Ratings
 
 | Bot | Ordinal | μ | σ |
 |:--|--:|--:|--:|
-| Claude MCE | 29.13 | 32.18 | 1.02 |
+| MCE Heuristic | 29.13 | 32.18 | 1.02 |
 | MCE Race | 27.54 | 30.41 | 0.96 |
 | MCE Score | 27.20 | 30.07 | 0.96 |
 | MCE Halving | 26.45 | 29.33 | 0.96 |
 | MCE Place | 26.42 | 29.28 | 0.95 |
-| Claude | 22.40 | 25.25 | 0.95 |
+| Claude Heuristic | 22.40 | 25.25 | 0.95 |
 | MCE Lead | 21.34 | 24.11 | 0.92 |
 | MCE EOH | 20.10 | 22.90 | 0.93 |
 | EOH | 19.35 | 22.26 | 0.97 |
@@ -69,7 +69,7 @@ I tested three bots in a head to head match.
 
 1. **Greedy:** simply chooses the highest scoring option for the given turn
 2. **MCE Race:** (The best model I designed) simulates games using a greedy policy with a maximum of 5000 simulations. Moves are no longer considered when there is a less than 5% chance that they are best.
-3. **Claude MCE:** (The model designed by Claude Opus) simulates games using the Claude heuristic with a maximum of 2000 simulations. Only the 16 moves the heuristic rates highest are considered, and a move is dropped once its average result trails the best by more than 2.5 standard errors. The heuristic adds to the board score a look ahead at next round's pick, the shape of the kingdom, the crowns and squares left in the deck for each landscape, and denying opponents the domino they want most. In the simulations opponents pick moves at random, weighted towards the ones the heuristic rates highest, and in the final round they only block a player when it changes where they finish. Each simulation is scored by the number of opponents beaten plus a small bonus for the margin over the best opponent.
+3. **MCE Heuristic:** (The model designed by Claude Opus) simulates games using the Claude heuristic with a maximum of 2000 simulations. Only the 16 moves the heuristic rates highest are considered, and a move is dropped once its average result trails the best by more than 2.5 standard errors. The heuristic adds to the board score a look ahead at next round's pick, the shape of the kingdom, the crowns and squares left in the deck for each landscape, and denying opponents the domino they want most. In the simulations opponents pick moves at random, weighted towards the ones the heuristic rates highest, and in the final round they only block a player when it changes where they finish. Each simulation is scored by the number of opponents beaten plus a small bonus for the margin over the best opponent.
 
 All games were played with the Middle Kingdom and Harmony rules, 100 games per player count.
 In the head to head tables, each cell shows how often the row bot outscores the column bot (ties count half), followed by the average margin.
@@ -78,13 +78,13 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
-| Claude MCE | 60.96 ± 0.89 | 47.0% | 1.75 |
+| MCE Heuristic | 60.96 ± 0.89 | 47.0% | 1.75 |
 | Greedy | 40.61 ± 0.84 | 1.5% | 3.58 |
 | MCE Race | 55.25 ± 0.80 | 26.3% | 2.17 |
 
-| | Claude MCE | Greedy | MCE Race |
+| | MCE Heuristic | Greedy | MCE Race |
 |:--|:-:|:-:|:-:|
-| **Claude MCE** | — | 95.3% (+20.60 ± 1.07) | 64.8% (+5.54 ± 1.02) |
+| **MCE Heuristic** | — | 95.3% (+20.60 ± 1.07) | 64.8% (+5.54 ± 1.02) |
 | **Greedy** | 4.7% (−20.60 ± 1.07) | — | 8.8% (−14.02 ± 0.88) |
 | **MCE Race** | 35.2% (−5.54 ± 1.02) | 91.2% (+14.02 ± 0.88) | — |
 
@@ -92,13 +92,13 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
-| Claude MCE | 58.04 ± 0.94 | 68.5% | 1.32 |
+| MCE Heuristic | 58.04 ± 0.94 | 68.5% | 1.32 |
 | Greedy | 35.83 ± 0.87 | 0.0% | 2.93 |
 | MCE Race | 49.19 ± 0.95 | 31.5% | 1.75 |
 
-| | Claude MCE | Greedy | MCE Race |
+| | MCE Heuristic | Greedy | MCE Race |
 |:--|:-:|:-:|:-:|
-| **Claude MCE** | — | 99.0% (+22.21 ± 1.17) | 68.5% (+8.85 ± 1.31) |
+| **MCE Heuristic** | — | 99.0% (+22.21 ± 1.17) | 68.5% (+8.85 ± 1.31) |
 | **Greedy** | 1.0% (−22.21 ± 1.17) | — | 6.0% (−13.36 ± 1.16) |
 | **MCE Race** | 31.5% (−8.85 ± 1.31) | 94.0% (+13.36 ± 1.16) | — |
 
@@ -106,13 +106,13 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
-| Claude MCE | 57.07 ± 1.23 | 97.8% | 1.02 |
+| MCE Heuristic | 57.07 ± 1.23 | 97.8% | 1.02 |
 | Greedy | 29.13 ± 0.95 | 0.0% | 2.00 |
 | MCE Race | 36.91 ± 0.99 | 52.3% | 1.48 |
 
-| | Claude MCE | Greedy | MCE Race |
+| | MCE Heuristic | Greedy | MCE Race |
 |:--|:-:|:-:|:-:|
-| **Claude MCE** | — | 100.0% (+32.03 ± 1.59) | 95.5% (+17.64 ± 1.92) |
+| **MCE Heuristic** | — | 100.0% (+32.03 ± 1.59) | 95.5% (+17.64 ± 1.92) |
 | **Greedy** | 0.0% (−32.03 ± 1.59) | — | 0.0% (−9.61 ± 0.94) |
 | **MCE Race** | 4.5% (−17.64 ± 1.92) | 100.0% (+9.61 ± 0.94) | — |
 

@@ -4,7 +4,7 @@ use std::io::{BufWriter, Write};
 use std::process::Command;
 
 use kingdomino_ai::core::{GameState, Ruleset, Turn};
-use kingdomino_ai::evaluators::{ greedy, nn_score, vectorize_board, vectorize_deck, nn::load_weights };
+use kingdomino_ai::evaluators::{ nn_score, vectorize_board, vectorize_deck, nn::load_weights };
 use kingdomino_ai::rng;
 use kingdomino_ai::run_game;
 use kingdomino_ai::simulation::simulated_deal;

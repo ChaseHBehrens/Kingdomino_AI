@@ -3,8 +3,8 @@ pub mod greedy; pub use greedy::greedy;
 pub mod mce; pub use mce::*;
 pub mod nn; pub use nn::*;
 pub mod eoh; pub use eoh::*;
-pub mod claude; pub use claude::claude;
-pub mod claude_mce; pub use claude_mce::claude_mce;
+pub mod claude_heuristic; pub use claude_heuristic::claude;
+pub mod mce_heuristic; pub use mce_heuristic::mce_heuristic;
 
 use crate::core::{ GameState, Ruleset, Turn };
 
@@ -24,8 +24,8 @@ fn(&GameState<N, S, R>, &[Turn]) -> usize {
         "mce nn" => mce_race_nn_score,
         "eoh" => eoh_trained,
         "mce eoh" => mce_race_eoh,
-        "claude mce" => claude_mce,
-        "claude" => claude,
+        "mce heuristic" => mce_heuristic,
+        "claude heuristic" => claude,
         _ => panic!("No bot with name {}!", name),
     }
 }
