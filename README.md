@@ -94,10 +94,8 @@ I tested three bots in a head to head match.
 All games were played with the Middle Kingdom and Harmony rules, 100 games per player count.
 In the head to head tables, each cell shows how often the row bot outscores the column bot (ties count half), followed by the average margin.
 
-#### 4 players
-
 <div align="center">
-
+#### 4 players
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
 | MCE Heuristic | 60.96 ± 0.89 | 47.0% | 1.75 |
@@ -116,10 +114,8 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 
 </div>
 
-#### 3 players
-
 <div align="center">
-
+#### 3 players
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
 | MCE Heuristic | 58.04 ± 0.94 | 68.5% | 1.32 |
@@ -138,10 +134,8 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 
 </div>
 
-#### 2 players
-
 <div align="center">
-
+#### 2 players
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
 | MCE Heuristic | 57.07 ± 1.23 | 97.8% | 1.02 |
