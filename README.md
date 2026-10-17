@@ -4,11 +4,20 @@ This project contains several high performance AI bots for the board game Kingdo
 > ⚠️ **Disclaimer:** This project is an unofficial and independent AI implementation that is not affiliated with, endorsed by, or connected to Blue Orange Games, Bruno Cathala, or any official creators or publishers of Kingdomino.
 
 ## Usage
-To play from your browser use the following link: **[Kingdomino AI Web UI](https://chasehbehrens.github.io/Kingdomino_AI/)**
-<img width="1264" height="831" alt="image" src="https://github.com/user-attachments/assets/45e65a3a-eda8-43a4-ad25-0275b0e12cea" />
 
-To play from the terminal simply download the latest release.
-<img width="1617" height="613" alt="image" src="https://github.com/user-attachments/assets/ff7360be-3321-48d2-bee2-7d75b5f7b1b9" />
+<div align="center">
+
+### Play in your browser
+**[Open Kingdomino AI](https://chasehbehrens.github.io/Kingdomino_AI/)**: nothing to install
+
+<a href="https://chasehbehrens.github.io/Kingdomino_AI/"><img width="800" alt="The web version mid-game: the draw pile, the player's kingdom showing where a domino can go, and the bots' kingdoms" src="https://github.com/user-attachments/assets/45e65a3a-eda8-43a4-ad25-0275b0e12cea" /></a>
+
+### Play in the terminal
+Download the **[latest release](https://github.com/ChaseHBehrens/Kingdomino_AI/releases/latest)** for Linux, Windows or macOS
+
+<img width="800" alt="The terminal version mid-game" src="https://github.com/user-attachments/assets/ff7360be-3321-48d2-bee2-7d75b5f7b1b9" />
+
+</div>
 
 ## About 
 Kingdomino is a game in which you draft dominoes into a 5x5 grid with the aim of creating large continuous areas. 
@@ -35,6 +44,8 @@ Claude Opus 5.5 was used to generate code for three areas of the project.
 Average time each bot takes per decision, timed on one thread of an Intel Core i5-1145G7.
 Every bot was timed on the same positions: every decision of one game per player count, with the Middle Kingdom and Harmony rules.
 
+<div align="center">
+
 | Bot | 4 players | 3 players | 2 players | Slowest decision (4 players) |
 |:--|--:|--:|--:|--:|
 | Random | 7.4 ns | 7.0 ns | 7.2 ns | 7.9 ns |
@@ -51,7 +62,11 @@ Every bot was timed on the same positions: every decision of one game per player
 | MCE Heuristic | 149.0 ms | 78.0 ms | 79.8 ms | 410.0 ms |
 | MCE NN | 1.19 s | 748.8 ms | 550.1 ms | 3.14 s |
 
+</div>
+
 ### Ratings
+
+<div align="center">
 
 | Bot | Ordinal | μ | σ |
 |:--|--:|--:|--:|
@@ -68,6 +83,8 @@ Every bot was timed on the same positions: every decision of one game per player
 | NN Score | 15.94 | 19.11 | 1.06 |
 | Random | −8.18 | −1.48 | 2.24 |
 
+</div>
+
 ### Head to Head
 I tested three bots in a head to head match.
 
@@ -80,11 +97,17 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 
 #### 4 players
 
+<div align="center">
+
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
 | MCE Heuristic | 60.96 ± 0.89 | 47.0% | 1.75 |
 | Greedy | 40.61 ± 0.84 | 1.5% | 3.58 |
 | MCE Race | 55.25 ± 0.80 | 26.3% | 2.17 |
+
+</div>
+
+<div align="center">
 
 | | MCE Heuristic | Greedy | MCE Race |
 |:--|:-:|:-:|:-:|
@@ -92,7 +115,11 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 | **Greedy** | 4.7% (−20.60 ± 1.07) | — | 8.8% (−14.02 ± 0.88) |
 | **MCE Race** | 35.2% (−5.54 ± 1.02) | 91.2% (+14.02 ± 0.88) | — |
 
+</div>
+
 #### 3 players
+
+<div align="center">
 
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
@@ -100,13 +127,21 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 | Greedy | 35.83 ± 0.87 | 0.0% | 2.93 |
 | MCE Race | 49.19 ± 0.95 | 31.5% | 1.75 |
 
+</div>
+
+<div align="center">
+
 | | MCE Heuristic | Greedy | MCE Race |
 |:--|:-:|:-:|:-:|
 | **MCE Heuristic** | — | 99.0% (+22.21 ± 1.17) | 68.5% (+8.85 ± 1.31) |
 | **Greedy** | 1.0% (−22.21 ± 1.17) | — | 6.0% (−13.36 ± 1.16) |
 | **MCE Race** | 31.5% (−8.85 ± 1.31) | 94.0% (+13.36 ± 1.16) | — |
 
+</div>
+
 #### 2 players
+
+<div align="center">
 
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
@@ -114,11 +149,17 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 | Greedy | 29.13 ± 0.95 | 0.0% | 2.00 |
 | MCE Race | 36.91 ± 0.99 | 52.3% | 1.48 |
 
+</div>
+
+<div align="center">
+
 | | MCE Heuristic | Greedy | MCE Race |
 |:--|:-:|:-:|:-:|
 | **MCE Heuristic** | — | 100.0% (+32.03 ± 1.59) | 95.5% (+17.64 ± 1.92) |
 | **Greedy** | 0.0% (−32.03 ± 1.59) | — | 0.0% (−9.61 ± 0.94) |
 | **MCE Race** | 4.5% (−17.64 ± 1.92) | 100.0% (+9.61 ± 0.94) | — |
+
+</div>
 
 ## Improvements
 Possible improvements could be made to the heuristic functions or search used. 
