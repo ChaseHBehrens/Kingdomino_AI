@@ -3,6 +3,7 @@ This project contains several high performance AI bots for the board game Kingdo
 
 ## Usage
 To play from your browser use the following link, **[Web UI](https://chasehbehrens.github.io/Kingdomino_AI/)**.
+<img width="1264" height="831" alt="image" src="https://github.com/user-attachments/assets/45e65a3a-eda8-43a4-ad25-0275b0e12cea" />
 
 To play from the terminal simply download the latest release.
 <img width="1617" height="613" alt="image" src="https://github.com/user-attachments/assets/ff7360be-3321-48d2-bee2-7d75b5f7b1b9" />
