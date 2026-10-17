@@ -10,6 +10,7 @@ This project contains several high performance AI bots for the board game Kingdo
 ### Play in your browser
 
 **[Open Kingdomino AI](https://chasehbehrens.github.io/Kingdomino_AI/)**
+
 <a href="https://chasehbehrens.github.io/Kingdomino_AI/"><img width="800" alt="The web version mid-game: the draw pile, the player's kingdom showing where a domino can go, and the bots' kingdoms" src="https://github.com/user-attachments/assets/c5bea50a-10f7-4fa4-b753-484b8a5a3e82" /></a>
 
 ### Play in the terminal
