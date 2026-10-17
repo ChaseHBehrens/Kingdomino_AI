@@ -2,11 +2,10 @@
 This project contains several high performance AI bots for the board game Kingdomino
 
 ## Usage
-**[Play in your browser](https://chasehbehrens.github.io/Kingdomino_AI/)**: nothing to install, and everything runs on your own computer.
+To play from your browser use the following link, **[Web UI](https://chasehbehrens.github.io/Kingdomino_AI/)**.
 
-To play in the terminal instead, download the latest release of the project. 
-MCE Heuristic is the strongest AI bot included. 
-<img width="1358" height="525" alt="image" src="https://github.com/user-attachments/assets/b7e0a0dd-3508-4130-a068-75b6e8b3fe37" />
+To play from the terminal simply download the latest release.
+<img width="1617" height="613" alt="image" src="https://github.com/user-attachments/assets/ff7360be-3321-48d2-bee2-7d75b5f7b1b9" />
 
 ## About 
 Kingdomino is a game in which you draft dominoes into a 5x5 grid with the aim of creating large continuous areas. 
@@ -24,7 +23,7 @@ This allows for the analysis of thousands of positions in milliseconds.
 
 Claude Opus 5.5 was used to generate code for three areas of the project.
 - Test scripts for measuring evaluator performance
-- Terminal user interface
+- Terminal and web user interface
 - MCE Heuristic and Claude Heuristic evaluation functions where it made improvements to my existing evaluators
 
 ## Results
@@ -138,3 +137,5 @@ This implementation builds upon research on statistical evaluation and Monte Car
   doi       = {10.48550/arxiv.1807.04458}
 }
 ```
+
+
