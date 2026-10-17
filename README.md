@@ -1,8 +1,10 @@
 # Kingdomino AI
-This project contains several high performance AI bots for the board game Kingdomino
+This project contains several high performance AI bots for the board game Kingdomino.
+
+> ⚠️ **Disclaimer:** This project is an unofficial and independent AI implementation that is not affiliated with, endorsed by, or connected to Blue Orange Games, Bruno Cathala, or any official creators or publishers of Kingdomino.
 
 ## Usage
-To play from your browser use the following link, **[Web UI](https://chasehbehrens.github.io/Kingdomino_AI/)**.
+To play from your browser use the following link: **[Kingdomino AI Web UI](https://chasehbehrens.github.io/Kingdomino_AI/)**
 <img width="1264" height="831" alt="image" src="https://github.com/user-attachments/assets/45e65a3a-eda8-43a4-ad25-0275b0e12cea" />
 
 To play from the terminal simply download the latest release.
