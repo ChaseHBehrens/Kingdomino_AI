@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kingdomino AI</title>
+<style>
+:root {
+  --bg: #f4efe4;
+  --panel: #fffaf0;
+  --ink: #2b2620;
+  --muted: #7a6f60;
+  --line: #d9cfbd;
+  --slot: #ebe3d3;
+  --farm: #e3b23c;
+  --field: #93c24a;
+  --forest: #2e7a3c;
+  --mine: #b8382e;
+  --lake: #3a86cf;
+  --swamp: #75664a;
+  --castle: #e8e6e1;
+  /* The accent is the castle grey: too pale for lines or white text, so those use its edge and ink */
+  --accent: var(--castle);
+  --accent-edge: color-mix(in srgb, var(--accent) 55%, #000);
+  --accent-ink: #2b2620;
+  --crown: #e8a90c;
+  --cell: min(60px, calc((100vw - 80px) / 9));
+  --small: min(28px, calc((100vw - 80px) / 9));
+  --tiny: 20px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1c1a17; --panel: #262320; --ink: #eee6d8; --muted: #a39886;
+    --line: #3d3832; --slot: #302c27;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1c1a17; --panel: #262320; --ink: #eee6d8; --muted: #a39886;
+  --line: #3d3832; --slot: #302c27;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+[hidden] { display: none !important; }
+header {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px;
+  padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel);
+}
+h1 { margin: 0; font-size: 20px; letter-spacing: .02em; }
+header .spacer { flex: 1; }
+#round { color: var(--muted); font-size: 14px; }
+select, button, input[type=text] {
+  font: inherit; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px;
+}
+select, button { cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent-edge); color: var(--accent-ink); font-weight: 600; }
+button:disabled { opacity: .45; cursor: default; }
+main {
+  display: grid; gap: 20px; padding: 20px; max-width: 1240px; margin: 0 auto;
+  grid-template-columns: 330px auto auto; align-items: start; justify-content: center;
+}
+/* Narrower, the other kingdoms move below; narrower still, everything stacks */
+@media (max-width: 1230px) {
+  main { grid-template-columns: 330px auto; }
+  main > section:last-child { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: center; }
+}
+@media (max-width: 1000px) {
+  main { grid-template-columns: minmax(0, 1fr); justify-items: center; padding: 16px; }
+  main > section:last-child { grid-column: auto; }
+}
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; max-width: 100%; }
+.panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.title h2 { margin: 0; display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: 15px; color: var(--ink); }
+.title b { font-size: 22px; }
+.sub { font-size: 12px; color: var(--muted); font-weight: normal; }
+.note { font-size: 12px; color: var(--muted); margin: 8px 0 0; max-width: 230px; }
+
+/* Squares */
+.tile {
+  width: 100%; height: 100%; border-radius: 4px; position: relative;
+  display: grid; place-items: center;
+  box-shadow: inset 0 -3px 0 #0000002a, inset 0 2px 0 #ffffff30;
+}
+/* Each icon is a darker shade of its own square */
+.tile svg.ico { width: 62%; height: 62%; color: color-mix(in srgb, var(--land) 64%, #000); }
+.l0 { --land: var(--farm); background: var(--land); }
+.l1 { --land: var(--field); background: var(--land); }
+.l2 { --land: var(--forest); background: var(--land); }
+.l3 { --land: var(--mine); background: var(--land); }
+.l4 { --land: var(--lake); background: var(--land); }
+.l5 { --land: var(--swamp); background: var(--land); }
+.l6 { --land: var(--castle); background: var(--land); } .l6 svg.ico { width: 66%; height: 66%; }
+/* Crowns shrink to fit when they don't all fit across the square at full size */
+.crowns { position: absolute; top: 2px; left: 2px; right: 2px; display: flex; gap: 1px; }
+.crowns svg { flex: 0 1 auto; min-width: 0; height: auto; aspect-ratio: 1; width: max(12px, calc(var(--cell) * .34)); color: var(--crown); }
+.small .crowns { top: 1px; left: 1px; right: 1px; }
+.small .crowns { right: auto; width: 25px; flex-wrap: wrap; }
+.small .crowns svg { flex: none; width: 12px; }
+.tiny .crowns { top: 1px; left: 1px; right: 1px; }
+.tiny .crowns { right: auto; width: 17px; flex-wrap: wrap; }
+.tiny .crowns svg { flex: none; width: 8px; }
+
+/* Dominoes */
+.domino {
+  display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 10px;
+  border: 2px solid transparent; background: none; text-align: left; cursor: default;
+}
+.halves { display: inline-flex; vertical-align: middle; gap: 2px; padding: 2px; background: #00000022; border-radius: 6px; flex: none; }
+.halves .tile { width: var(--cell); height: var(--cell); }
+.domino .num { font-size: 12px; color: var(--muted); width: 18px; text-align: right; flex: none; }
+.domino:disabled { opacity: 1; }
+.domino.selectable { cursor: pointer; }
+.domino.selectable:hover { border-color: var(--line); }
+.domino.selected { border-color: var(--accent-edge); }
+.domino.taken .halves, .domino.taken .num, .domino.unfit .halves, .domino.unfit .num { opacity: .45; }
+.tag { display: inline-block; vertical-align: middle; font-size: 12px; font-weight: 600; color: #fff; padding: 1px 8px; border-radius: 99px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+.title .tag, #over-title .tag, #final-title .tag { font-size: 14px; padding: 2px 10px; max-width: none; }
+#over-title .tag, #final-title .tag { font-size: 20px; padding: 2px 14px; }
+#pile { display: flex; flex-direction: column; gap: 8px; }
+@media (max-width: 1000px) { #pile { flex-direction: row; flex-wrap: wrap; justify-content: center; min-width: 0; } }
+#order { font-size: 13px; margin-top: 10px; }
+#order { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.remaining { display: grid; grid-template-columns: auto 1fr auto auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+.remaining .tile { width: 22px; height: 22px; }
+.remaining .tile svg.ico { display: none; }
+.remaining .num { text-align: right; font-variant-numeric: tabular-nums; }
+.remaining .head { font-size: 11px; color: var(--muted); text-align: right; }
+
+/* Boards */
+.board { display: grid; grid-template-columns: repeat(var(--cols, 9), var(--cell)); grid-auto-rows: var(--cell); gap: 2px; justify-content: center; }
+.board.small { grid-template-columns: repeat(var(--cols, 9), var(--small)); grid-auto-rows: var(--small); }
+.board.tiny { grid-template-columns: repeat(var(--cols, 5), var(--tiny)); grid-auto-rows: var(--tiny); gap: 1px; }
+.small .tile svg.ico, .tiny .tile svg.ico { display: none; }
+.cell { border-radius: 4px; position: relative; }
+.board.small, .board.tiny { width: fit-content; margin: 0 auto; background: color-mix(in srgb, var(--slot) 70%, transparent); padding: 3px; border-radius: 6px; }
+.cell.target { background: color-mix(in srgb, var(--accent) 26%, #000); cursor: pointer; }
+.cell.target:hover { background: color-mix(in srgb, var(--accent) 40%, #000); }
+/* The previewed domino stays solid; only a frame around it flashes */
+.ghost-frame { border: 3px solid var(--accent); border-radius: 6px; margin: -2px; pointer-events: none; z-index: 1; animation: pulse 1.1s ease-in-out infinite; }
+.cell.ghost { cursor: pointer; }
+@keyframes pulse { 50% { border-color: transparent; } }
+/* The castle grey band gets a thin dark edge either side, so it shows on light backgrounds too */
+.fresh-frame { border: 3px solid var(--accent); border-radius: 6px; margin: -2px; pointer-events: none; z-index: 1; box-shadow: 0 0 0 1px #0007, inset 0 0 0 1px #0007; }
+.small .fresh-frame { border-width: 2px; border-radius: 4px; margin: -1px; }
+.placed .tile { animation: drop .35s ease-out; }
+@keyframes drop { from { transform: scale(1.25); opacity: .3; } }
+.others { display: flex; flex-direction: column; gap: 16px; }
+@media (max-width: 1230px) { .others { flex-direction: row; flex-wrap: wrap; justify-content: center; } }
+.active-seat { box-shadow: 0 0 0 2px var(--accent-edge); }
+
+#status { min-height: 48px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+#status .msg { flex: 1; min-width: 200px; }
+.thinking::after { content: "..."; display: inline-block; width: 0; overflow: hidden; vertical-align: bottom; animation: dots 1.2s steps(4) infinite; }
+@keyframes dots { to { width: 1.2em; } }
+.keys { font-size: 12px; color: var(--muted); margin-top: 10px; max-width: calc(var(--cell) * 9 + 16px); }
+kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; white-space: nowrap; }
+.rules { font-size: 13px; color: var(--muted); margin: 0; padding-left: 18px; }
+
+/* Analysis */
+#centre { width: calc(var(--cell) * 9 + 46px); max-width: 100%; }
+#a-body { overflow-x: auto; }
+#analysis { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.switch { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; }
+.switch label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.switch select { padding: 3px 8px; font-size: 13px; }
+#analysis table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+#analysis th { font-size: 11px; color: var(--muted); font-weight: 600; text-align: right; padding: 4px 5px; white-space: nowrap; }
+#analysis th:nth-child(-n+3) { text-align: left; }
+#analysis td { padding: 4px 5px; white-space: nowrap; text-align: right; border-top: 1px solid var(--line); }
+#analysis td:nth-child(-n+3) { text-align: left; }
+#analysis tbody tr { cursor: pointer; }
+#analysis tbody tr:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+#analysis tr.current { background: color-mix(in srgb, var(--accent) 40%, transparent); }
+#analysis .halves .tile { width: 22px; height: 22px; }
+#dealer .halves .tile { width: 40px; height: 40px; }
+#dealer .halves .crowns svg { width: 12px; }
+#analysis .halves .crowns { top: 1px; left: 1px; right: 1px; }
+#analysis .halves .crowns svg { width: 9px; }
+.predicted { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--accent); vertical-align: middle; margin-right: 6px; opacity: .7; }
+
+/* Setup and dealing */
+dialog {
+  border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink);
+  padding: 20px; width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
+}
+dialog::backdrop { background: #0008; }
+dialog .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+dialog .head h2 { margin: 0; font-size: 18px; color: var(--ink); text-transform: none; letter-spacing: 0; }
+.close { border: 0; background: none; font-size: 22px; line-height: 1; padding: 4px 8px; color: var(--muted); }
+#info { width: min(520px, calc(100vw - 32px)); }
+#info h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 16px 0 6px; }
+#info p, #info ul { font-size: 14px; margin: 0; }
+#info ul { padding-left: 18px; }
+#dealer { margin: 24px auto; }
+#dealer { max-width: 1100px; margin: 20px auto 0; }
+@media (max-width: 1000px) { #dealer { margin: 16px; } }
+.field { margin-bottom: 18px; }
+.field > .label { font-weight: 600; margin-bottom: 6px; display: block; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+.seg button { border: 0; border-radius: 0; padding: 7px 16px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+input[type=checkbox] {
+  appearance: none; -webkit-appearance: none; margin: 0; flex: none; cursor: pointer;
+  width: 18px; height: 18px; border: 1.5px solid var(--muted); border-radius: 5px; background: var(--panel);
+  display: inline-grid; place-content: center; transition: background .15s, border-color .15s;
+}
+input[type=checkbox]::after {
+  content: ""; width: 5px; height: 9px; border: solid var(--accent-ink); border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg); opacity: 0;
+}
+input[type=checkbox]:checked { background: var(--accent); border-color: var(--accent-edge); }
+input[type=checkbox]:checked::after { opacity: 1; }
+input[type=checkbox]:focus-visible { outline: 2px solid var(--accent-edge); outline-offset: 2px; }
+input.toggle { width: 34px; height: 20px; border: 0; border-radius: 99px; background: var(--line); display: inline-block; position: relative; }
+input.toggle::after {
+  position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border: 0; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px #0004; transform: none; opacity: 1; transition: left .15s;
+}
+input.toggle:checked { background: var(--accent-edge); }
+input.toggle:checked::after { left: 16px; }
+.seat { display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: center; margin-bottom: 8px; }
+.seat select, .seat input { min-width: 0; width: 100%; }
+.seat .who { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+@media (max-width: 560px) { .seat { grid-template-columns: 1fr 1fr; } .seat .who { grid-column: 1 / -1; } }
+.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; margin-top: 12px; }
+.picker .domino { border-color: var(--line); cursor: pointer; justify-content: flex-start; }
+.picker .domino:hover { border-color: var(--accent-edge); }
+.dealer-top { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.dealer-top .msg { flex: 1; min-width: 220px; }
+.chosen { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0; }
+.pending { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; min-height: 52px; }
+
+/* Game over */
+#final { max-width: 1240px; margin: 0 auto; padding: 20px; }
+#final .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+#final .top h2 { margin: 0; font-size: 22px; }
+.finals { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+.finals .panel { min-width: calc(var(--cell) * 5 + 40px); }
+.finals .place { font-weight: 700; color: var(--muted); margin-right: 2px; }
+#over { position: fixed; inset: 0; background: #0008; display: none; place-items: center; padding: 16px; overflow: auto; }
+#over.show { display: grid; }
+#over .panel { max-width: 560px; width: 100%; padding: 24px; }
+#over h2 { font-size: 26px; color: var(--ink); text-transform: none; letter-spacing: 0; text-align: center; }
+.results { display: flex; flex-direction: column; gap: 10px; margin: 16px 0 20px; }
+.result { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 12px; align-items: center; padding: 8px; border-bottom: 1px solid var(--line); }
+.result .place { font-weight: 700; color: var(--muted); }
+.result b { font-size: 20px; }
+.buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+#loading, #error { padding: 40px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i0" viewBox="0 0 20 20"><g fill="currentColor"><rect x="9.35" y="7.2" width="1.3" height="11" rx=".65"/><ellipse cx="10" cy="3.6" rx="1.5" ry="2.4"/><ellipse cx="7" cy="8" rx="1.3" ry="2.3" transform="rotate(-35 7 8)"/><ellipse cx="13" cy="8" rx="1.3" ry="2.3" transform="rotate(35 13 8)"/><ellipse cx="7" cy="12.6" rx="1.3" ry="2.3" transform="rotate(-35 7 12.6)"/><ellipse cx="13" cy="12.6" rx="1.3" ry="2.3" transform="rotate(35 13 12.6)"/></g></symbol>
+    <!-- Cow from Font Awesome Free (CC BY 4.0, fontawesome.com/license/free), the same glyph the terminal version shows through its Nerd Font -->
+    <symbol id="i1" viewBox="0 -1433 2400 1446"><path fill="currentColor" transform="scale(1,-1)" d="M362 831V1072Q362 1140 386 1203Q333 1165 302.0 1107.0Q271 1049 271 981V831V710V686Q271 596 207.5 532.5Q144 469 55 469Q32 469 16.0 484.5Q0 500 0 523V589Q0 704 90 778V981Q90 1104 151.0 1208.0Q212 1312 316.0 1372.5Q420 1433 543 1433H723H965H1025H1530Q1661 1433 1777.5 1373.0Q1894 1313 1970 1205L2170 927V981Q2170 1019 2196.5 1045.5Q2223 1072 2260.5 1072.0Q2298 1072 2324.5 1045.5Q2351 1019 2351 981V673L2366 653Q2411 590 2396 512L2319 130Q2306 68 2257.0 27.5Q2208 -13 2145 -13Q2100 -13 2060.5 8.0Q2021 29 1997 66L1839 302Q1808 348 1808 403V589L1688 710V107Q1688 57 1652.5 22.0Q1617 -13 1567 -13H1447Q1397 -13 1361.5 22.0Q1326 57 1326 107V440Q1267 400 1206 378V288Q1206 264 1188.0 246.0Q1170 228 1145.5 228.0Q1121 228 1103.0 246.0Q1085 264 1085 288V351Q1056 348 1025 348Q995 348 965 351V288Q965 264 947.0 246.0Q929 228 904.5 228.0Q880 228 862.0 246.0Q844 264 844 288V378Q784 399 723 439V107Q723 57 688.0 22.0Q653 -13 603 -13H482Q432 -13 397.0 22.0Q362 57 362 107V710ZM2128.0 451.0Q2110 433 2110.0 408.5Q2110 384 2128.0 366.0Q2146 348 2170.5 348.0Q2195 348 2212.5 366.0Q2230 384 2230.0 408.5Q2230 433 2212.5 451.0Q2195 469 2170.5 469.0Q2146 469 2128.0 451.0ZM627 1046H628L716 958Q777 896 857.0 863.5Q937 831 1025 831Q1111 831 1192.0 864.0Q1273 897 1334 959L1422 1046Q1447 1071 1447.0 1106.5Q1447 1142 1422.0 1167.0Q1397 1192 1362 1192H688Q653 1192 628.0 1167.0Q603 1142 603.0 1106.5Q603 1071 627 1046Z"/></symbol>
+    <symbol id="i2" viewBox="0 0 20 20"><g fill="currentColor"><path d="M5.8 2 2 9h2.2L1.5 14h8.6L7.4 9h2.2z"/><rect x="5" y="14.6" width="1.6" height="3.4" rx=".4"/><path d="M14.2 5 10.8 11h2L10.4 15.5h7.6L15.6 11h2z"/><rect x="13.4" y="16.1" width="1.6" height="2.2" rx=".4"/></g></symbol>
+    <!-- Pickaxe from Material Design Icons (Apache 2.0, pictogrammers.com), the same glyph the terminal version shows through its Nerd Font -->
+    <symbol id="i3" viewBox="-250 -1836 2252 2252"><path fill="currentColor" transform="scale(1,-1)" d="M1084 794 120 -166 0 -46 960 918ZM1464 1042 1516 1094 1448 1162 1500 1214 1380 1334 1328 1282 1260 1350 1208 1298Q984 1482 712 1586L644 1434Q864 1314 1056 1146L1016 1106L1272 850L1312 890Q1480 698 1600 478L1752 546Q1648 818 1464 1042Z"/></symbol>
+    <symbol id="i4" viewBox="0 0 20 20"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M2.5 6q1.9-2 3.75 0t3.75 0 3.75 0 3.75 0"/><path d="M2.5 10.5q1.9-2 3.75 0t3.75 0 3.75 0 3.75 0"/><path d="M2.5 15q1.9-2 3.75 0t3.75 0 3.75 0 3.75 0"/></g></symbol>
+    <symbol id="i5" viewBox="0 0 20 20"><g fill="currentColor"><rect x="3.6" y="2.5" width="2.8" height="6" rx="1.4"/><rect x="4.4" y="9.2" width="1.2" height="6.3" rx=".6"/><rect x="8.6" y="4.5" width="2.8" height="6" rx="1.4"/><rect x="9.4" y="11.2" width="1.2" height="4.3" rx=".6"/><rect x="13.6" y="3.5" width="2.8" height="5" rx="1.4"/><rect x="14.4" y="9.2" width="1.2" height="6.3" rx=".6"/><rect x="2" y="16.6" width="16" height="1.5" rx=".75"/></g></symbol>
+    <symbol id="i6" viewBox="0 0 20 20"><path fill="currentColor" d="M2 18V5h2v1.5h1.5V5h2v5h5V5h2v1.5H16V5h2v13h-6v-3a2 2 0 0 0-4 0v3z"/></symbol>
+    <symbol id="crown" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" fill="#e8e6e1"/><path fill="currentColor" stroke="#6b4a00" stroke-width="1.4" stroke-linejoin="round" transform="translate(10 10.3) scale(.66) translate(-10 -9.5)" d="M2 6l4 4 4-7 4 7 4-4-1.5 10h-13z"/></symbol>
+  </defs>
+</svg>
+
+<header>
+  <h1>Kingdomino AI</h1>
+  <span id="round"></span>
+  <div class="spacer"></div>
+  <button id="info-open" hidden>Rules</button>
+  <button id="to-setup" hidden>New game</button>
+</header>
+
+<div id="loading">Loading the engine...</div>
+<div id="error" hidden></div>
+
+<dialog id="setup">
+  <div class="head"><h2>New game</h2><button class="close" id="setup-close" aria-label="Close">×</button></div>
+  <div class="field"><span class="label">Players</span><div class="seg" id="s-players"></div></div>
+  <div class="field"><span class="label">Bonus rules</span>
+    <div class="seg" id="s-bonus"><button data-b="middle">Middle Kingdom (+10)</button><button data-b="harmony">Harmony (+5)</button></div>
+  </div>
+  <div class="field"><span class="label">Dominoes</span><div class="seg" id="s-dealer"></div>
+    <p class="note" style="max-width:none">With a real set you draw the tiles from the box and enter each one, so you can play at the table against the bots.</p>
+  </div>
+  <div class="field"><span class="label">Seats</span><div id="s-seats"></div></div>
+  <button class="primary" id="start">Start game</button>
+</dialog>
+
+<dialog id="info">
+  <div class="head"><h2>Rules</h2><button class="close" id="info-close" aria-label="Close">×</button></div>
+  <h3>Drawing</h3>
+  <p>Each turn you take a domino from the draw pile and place it straight away. The higher in the pile the domino you take, the earlier you pick next round.</p>
+  <h3>Scoring</h3>
+  <ul id="rules"></ul>
+</dialog>
+
+<section id="dealer" class="panel" hidden>
+  <div class="dealer-top"><div class="msg" id="deal-msg"></div><button id="choose-aside">Choose them for me</button><button id="undeal">Undo last</button></div>
+  <div id="chosen"></div>
+  <div class="pending" id="pending"></div>
+  <input type="text" id="filter" placeholder="Filter by tile number or landscape" autocomplete="off" style="margin-top:12px; width: min(320px, 100%)">
+  <div class="picker" id="picker"></div>
+</section>
+
+<main id="game" hidden>
+  <section class="col">
+    <div class="panel">
+      <h2>Draw pile</h2>
+      <div id="pile"></div>
+      <div id="order"></div>
+    </div>
+    <div class="panel">
+      <h2>Deck contents</h2>
+      <div class="remaining" id="remaining"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="centre">
+    <div id="status"><div class="msg" id="msg"></div><button class="primary" id="place" disabled>Place</button></div>
+    <div class="title"><h2 id="focus-name"></h2><b id="focus-score"></b></div>
+    <div class="board" id="focus-board"></div>
+    <div class="keys">Pick a domino, then click a highlighted square to place it there; click again to turn it. <kbd>←</kbd><kbd>→</kbd> placements <kbd>↑</kbd><kbd>↓</kbd> dominoes <kbd>R</kbd> turn <kbd>Enter</kbd> place <kbd>Esc</kbd> cancel <kbd>A</kbd> analysis</div>
+    <div id="fresh-note" class="keys"></div>
+    <div id="analysis">
+      <div class="switch">
+        <label><input type="checkbox" class="toggle" id="a-on"> Show analysis</label>
+        <span id="a-by">by <select id="a-analyst"></select></span>
+      </div>
+      <div id="a-body"></div>
+    </div>
+  </section>
+
+  <section class="col">
+    <div class="others" id="others"></div>
+  </section>
+</main>
+
+<section id="final" hidden>
+  <div class="top"><h2 id="final-title"></h2>
+    <div class="buttons"><button id="final-results">Results</button><button class="primary" id="final-again">Play again</button><button id="final-setup">New game</button></div>
+  </div>
+  <div class="finals" id="finals"></div>
+</section>
+
+<div id="over"><div class="panel">
+  <h2 id="over-title"></h2>
+  <div class="results" id="results"></div>
+  <div class="buttons">
+    <button class="primary" id="again">Play again</button>
+    <button id="over-setup">New game</button>
+    <button id="over-close">View boards</button>
+  </div>
+</div></div>
+
+<script id="worker-src" type="text/plain">
+let wasm;
+let ready;
+onmessage = async ({ data }) => {
+  if (data.module) {
+    ready = WebAssembly.instantiate(data.module, {}).then(i => { wasm = i.exports; });
+    return;
+  }
+  await ready;
+  try {
+    wasm[data.fn](...(data.args || []));
+    const bytes = new Uint8Array(wasm.memory.buffer, wasm.out_ptr(), wasm.out_len());
+    postMessage({ json: new TextDecoder().decode(bytes) });
+  } catch (e) {
+    postMessage({ error: String(e) });
+  }
+};
+</script>
+
+<script>
+const WASM = "__WASM_BASE64__";
+const LANDS = ["Farm", "Field", "Forest", "Mine", "Lake", "Swamp", "Castle"];
+// Indices match BOTS and ANALYSTS in web/src/lib.rs
+const BOTS = ["MCE Heuristic", "MCE Race", "MCE Score", "MCE EOH", "Claude Heuristic", "EOH", "Greedy", "NN Score", "Random"];
+const ANALYSTS = ["MCE Heuristic", "MCE Race", "MCE Score"];
+const PERSON = -1;
+const COLORS = ["#2563eb", "#c2410c", "#7c3aed", "#0f766e"];
+const BOT_DELAY = 600;
+const TOP = 5;
+const $ = id => document.getElementById(id);
+const key = (r, c) => r + "," + c;
+
+// Saved choices are a convenience, so a browser that blocks storage just starts fresh
+const store = {
+  get(k, fallback) { try { return JSON.parse(localStorage.getItem("kingdomino." + k)) ?? fallback; } catch { return fallback; } },
+  set(k, v) { try { localStorage.setItem("kingdomino." + k, JSON.stringify(v)); } catch {} },
+};
+
+// The engine runs in a worker so the page keeps responding while a bot thinks.
+// Requests are answered in order, so replies resolve a queue of promises.
+const worker = new Worker(URL.createObjectURL(new Blob([$("worker-src").textContent], { type: "text/javascript" })));
+const waiting = [];
+worker.onmessage = ({ data }) => {
+  const resolve = waiting.shift();
+  if (data.error) return fail(data.error);
+  resolve(JSON.parse(data.json));
+};
+worker.onerror = e => fail(e.message);
+const call = (fn, ...args) => new Promise(resolve => { waiting.push(resolve); worker.postMessage({ fn, args }); });
+
+function fail(error) {
+  $("error").hidden = false;
+  $("error").textContent = `The engine stopped with an error (${error}). Reload the page to start again.`;
+  for (const id of ["game", "dealer"]) $(id).hidden = true;
+  for (const d of document.querySelectorAll("dialog[open]")) d.close();
+}
+
+let DOMINOES = [];
+let setup = store.get("setup", {
+  players: 2, middle: true, harmony: true, entered: false,
+  seats: [{ bot: PERSON, name: "" }, { bot: 0 }, { bot: 0 }, { bot: 0 }],
+});
+
+let state = null;
+let game = 0;            // bumped by each new game so replies for an old one are dropped
+let busy = false;        // a move is being played
+let selected = null;     // draw pile position chosen
+let preview = null;      // index of the move shown on the board
+let anchor = null;       // square clicked, "r,c"
+let moves = [];          // every move this game: the mover and the squares placed
+let seenAt = {};         // for each person, how many moves had been made when they last moved
+let lastPerson = null;   // the person who moved last
+let analysis = { on: false, analyst: store.get("analyst", 0), top: null, stats: new Map(), asking: false, version: 0 };
+
+const isPerson = p => setup.seats[p].bot === PERSON;
+const people = () => setup.seats.slice(0, setup.players).map((_, p) => p).filter(isPerson);
+function name(p) {
+  const seat = setup.seats[p];
+  const base = seat.bot === PERSON ? (seat.name?.trim() || `Player ${p + 1}`) : BOTS[seat.bot];
+  const same = setup.seats.slice(0, setup.players).filter((s, q) => q !== p && (s.bot === PERSON ? (s.name?.trim() || `Player ${q + 1}`) : BOTS[s.bot]) === base);
+  return same.length ? `${base} ${p + 1}` : base;
+}
+const tag = (p, cls = "") => `<span class="tag ${cls}" style="background:${COLORS[p]}">${escape(name(p))}</span>`;
+const escape = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function tile(land, crowns) {
+  let html = `<div class="tile l${land}"><svg class="ico"><use href="#i${land}"/></svg>`;
+  if (crowns) html += `<div class="crowns">${'<svg><use href="#crown"/></svg>'.repeat(crowns)}</div>`;
+  return html + "</div>";
+}
+function halves(number) {
+  const [a, b, crowns] = DOMINOES[number - 1];
+  return `<span class="halves">${tile(a, crowns)}${tile(b, 0)}</span>`;
+}
+
+// Draws a kingdom, showing only its squares and the squares in `targets`.
+// With `full` it sits on a fixed 9 x 9 grid around the castle, so it never
+// moves as it grows; otherwise on the 5 x 5 it fills, as near centred on the
+// castle as the kingdom allows.
+function drawBoard(el, squares, opts = {}) {
+  const at = new Map(squares.map(s => [key(s[0], s[1]), s]));
+  const rows = squares.map(s => s[0]), cols = squares.map(s => s[1]);
+  const fit = v => Math.min(Math.max(-2, Math.max(...v) - 4), Math.min(...v));
+  const lo = opts.full ? [-4, -4] : [fit(rows), fit(cols)];
+  const hi = [lo[0] + (opts.full ? 8 : 4), lo[1] + (opts.full ? 8 : 4)];
+  const ghost = new Map((opts.ghost || []).map(s => [key(s[0], s[1]), s]));
+  const fresh = new Set((opts.fresh || []).flat().map(s => key(s[0], s[1])));
+  let html = "";
+  for (let r = hi[0]; r >= lo[0]; r--) {
+    for (let c = lo[1]; c <= hi[1]; c++) {
+      const k = key(r, c);
+      const s = at.get(k) || ghost.get(k);
+      const cls = ["cell"];
+      if (ghost.has(k)) cls.push("ghost");
+      if (opts.targets?.has(k)) cls.push("target");
+      if (fresh.has(k) && opts.animate) cls.push("placed");
+      // Placed explicitly so the preview frame below can overlap the squares
+      html += `<div class="${cls.join(" ")}" data-k="${k}" style="grid-area: ${hi[0] - r + 1} / ${c - lo[1] + 1}">${s ? tile(s[2], s[3]) : ""}</div>`;
+    }
+  }
+  // One frame around both halves of a domino: flashing for the preview, still for recent placements
+  const frame = (squares, cls) => {
+    const rs = squares.map(s => hi[0] - s[0] + 1), cs = squares.map(s => s[1] - lo[1] + 1);
+    return `<div class="${cls}" style="grid-area: ${Math.min(...rs)} / ${Math.min(...cs)} / ${Math.max(...rs) + 1} / ${Math.max(...cs) + 1}"></div>`;
+  };
+  for (const domino of opts.fresh || []) html += frame(domino, "fresh-frame");
+  if (opts.ghost?.length) html += frame(opts.ghost, "ghost-frame");
+  el.style.setProperty("--cols", hi[1] - lo[1] + 1);
+  el.innerHTML = html;
+}
+
+/* ---------- Setup ---------- */
+
+function renderSetup() {
+  $("s-players").innerHTML = [2, 3, 4].map(n => `<button class="${setup.players === n ? "on" : ""}" data-n="${n}">${n}</button>`).join("");
+  $("s-dealer").innerHTML = ["Simulated", "From a real set"].map((t, i) => `<button class="${setup.entered === !!i ? "on" : ""}" data-i="${i}">${t}</button>`).join("");
+  for (const b of $("s-bonus").children) b.classList.toggle("on", setup[b.dataset.b]);
+  $("s-seats").innerHTML = setup.seats.slice(0, setup.players).map((seat, p) => `
+    <div class="seat" data-p="${p}">
+      <span class="who"><span class="tag" style="background:${COLORS[p]}">Seat ${p + 1}</span>${p === 0 ? ' <span class="sub">picks first</span>' : ""}</span>
+      <select data-role="bot">
+        <option value="${PERSON}" ${seat.bot === PERSON ? "selected" : ""}>Person</option>
+        ${BOTS.map((b, i) => `<option value="${i}" ${seat.bot === i ? "selected" : ""}>${b}${i === 0 ? " (strongest)" : ""}</option>`).join("")}
+      </select>
+      <input type="text" data-role="name" placeholder="Player ${p + 1}" value="${escape(seat.name || "")}" ${seat.bot === PERSON ? "" : "hidden"}>
+    </div>`).join("");
+}
+
+$("s-players").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { setup.players = +b.dataset.n; renderSetup(); } });
+$("s-dealer").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { setup.entered = b.dataset.i === "1"; renderSetup(); } });
+$("s-bonus").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { setup[b.dataset.b] = !setup[b.dataset.b]; renderSetup(); } });
+$("s-seats").addEventListener("change", e => {
+  const p = +e.target.closest(".seat").dataset.p;
+  if (e.target.dataset.role === "bot") { setup.seats[p].bot = +e.target.value; renderSetup(); }
+});
+$("s-seats").addEventListener("input", e => {
+  if (e.target.dataset.role === "name") setup.seats[+e.target.closest(".seat").dataset.p].name = e.target.value;
+});
+$("start").addEventListener("click", () => { store.set("setup", setup); newGame(); });
+
+function showSetup() {
+  $("over").classList.remove("show");
+  $("setup-close").hidden = !state;
+  renderSetup();
+  $("setup").showModal();
+}
+
+/* ---------- Playing ---------- */
+
+const ourTurn = () => state?.phase === "play" && isPerson(state.active) && !busy;
+const movesFor = pos => state.turns.map((t, i) => [t, i]).filter(([t]) => t[0] === pos);
+const discards = pos => movesFor(pos).every(([t]) => t[1].length === 0);
+const covers = (turn, k) => turn[1].some(s => key(s[0], s[1]) === k);
+
+// Moves grouped by domino, placements ordered top left to bottom right
+function choices() {
+  const order = squares => squares.map(s => [-s[0], s[1]]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).flat();
+  const compare = (a, b) => {
+    const [x, y] = [order(state.turns[a][1]), order(state.turns[b][1])];
+    for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i];
+    return x.length - y.length;
+  };
+  const byPos = new Map();
+  state.turns.forEach((t, i) => { if (!byPos.has(t[0])) byPos.set(t[0], []); byPos.get(t[0]).push(i); });
+  return [...byPos.entries()].sort((a, b) => a[0] - b[0]).map(([pos, moves]) => [pos, moves.sort(compare)]);
+}
+
+function placement(i) {
+  const [pos] = state.turns[i];
+  if (discards(pos)) return "discard";
+  const moves = choices().find(([p]) => p === pos)[1];
+  return `${moves.indexOf(i) + 1}/${moves.length}`;
+}
+
+// The person looking at the screen: the one to move, or the last to move
+function viewer() {
+  if (state.phase === "play" && isPerson(state.active)) return state.active;
+  return lastPerson ?? people()[0] ?? null;
+}
+
+// Dominoes placed on board q since the viewer last moved, or the last move
+// when nobody is playing, each as its squares
+function freshOn(q) {
+  const v = viewer();
+  const from = v !== null ? seenAt[v] ?? 0 : moves.length - 1;
+  return moves.slice(Math.max(0, from)).filter(m => m.player === q && m.squares.length).map(m => m.squares);
+}
+
+function render() {
+  const players = state.players;
+  const play = state.phase === "play";
+  $("round").textContent = state.phase === "over" ? "Game over" : `Round ${state.round} of ${state.rounds}`;
+  renderDealer();
+
+  // Draw pile, and who picks when
+  $("pile").innerHTML = state.pile.map(([num, owner], pos) => {
+    const taken = owner >= 0;
+    const canTake = !taken && ourTurn() && movesFor(pos).length > 0;
+    const cls = ["domino", taken ? "taken" : "", canTake ? "selectable" : "", pos === selected ? "selected" : ""];
+    // A domino that fits nowhere can only be taken, and discarded, when none fits
+    const unfit = !taken && ourTurn() && !canTake;
+    if (unfit) cls.push("unfit");
+    const note = taken ? tag(owner) : unfit ? '<span class="sub">Doesn\'t fit</span>' : "";
+    const why = unfit ? ' title="It fits nowhere in your kingdom, and another domino does, so it can\'t be taken"' : "";
+    return `<button class="${cls.join(" ")}" data-pos="${pos}" ${canTake ? "" : "disabled"}${why}>
+      <span class="num">${num}</span>${halves(num)}${note}</button>`;
+  }).join("") || '<span class="sub">Waiting for the dominoes.</span>';
+  const left = state.pile.filter(([, owner]) => owner < 0).length;
+  const picking = state.order.slice(0, play ? left : 0);
+  $("order").innerHTML = picking.length
+    ? "Picking: " + picking.map(p => tag(p)).join(" → ")
+    : "";
+
+  // Squares and crowns of each landscape left in the deck, not counting the draw pile
+  const squares = [0, 0, 0, 0, 0, 0], crowns = [0, 0, 0, 0, 0, 0];
+  for (const num of state.deck) {
+    const [a, b, c] = DOMINOES[num - 1];
+    squares[a]++; squares[b]++; crowns[a] += c;
+  }
+  $("remaining").innerHTML = '<span></span><span></span><span class="head">Squares</span><span class="head">Crowns</span>' +
+    LANDS.slice(0, 6).map((n, l) => `${tile(l, 0)}<span>${n}</span><span class="num">${squares[l]}</span><span class="num">${crowns[l]}</span>`).join("");
+
+  // The viewer's kingdom, with the squares the selected domino can cover and the move previewed
+  const focus = viewer() ?? 0;
+  let targets = null, ghost = null;
+  if (ourTurn() && selected !== null) {
+    targets = new Set(movesFor(selected).flatMap(([t]) => t[1].map(s => key(s[0], s[1]))));
+    if (preview !== null) ghost = state.turns[preview][1];
+  }
+  $("focus-name").innerHTML = `${tag(focus)}${isPerson(focus) ? "" : ' <span class="sub">bot</span>'}`;
+  $("focus-score").textContent = state.scores[focus];
+  drawBoard($("focus-board"), state.boards[focus], { full: true, targets, ghost, fresh: freshOn(focus), animate: true });
+  const v = viewer();
+  $("fresh-note").innerHTML = v !== null && state.phase !== "over"
+    ? `Outlined squares were placed since ${people().length > 1 ? tag(v) + "'s" : "your"} last turn.` : "";
+
+  // Everyone else
+  const others = [...Array(players).keys()].filter(p => p !== focus);
+  $("others").innerHTML = others.map(p => `
+    <div class="panel ${play && state.active === p ? "active-seat" : ""}">
+      <div class="title"><h2>${tag(p)}${isPerson(p) ? "" : ' <span class="sub">bot</span>'}</h2><b>${state.scores[p]}</b></div>
+      <div class="board small" data-p="${p}"></div>
+    </div>`).join("");
+  for (const p of others) drawBoard($("others").querySelector(`[data-p="${p}"]`), state.boards[p], { fresh: freshOn(p) });
+
+  // Status line and the place button
+  const place = $("place");
+  place.disabled = true;
+  place.textContent = "Place";
+  let msg;
+  if (state.phase === "over") msg = "Game over.";
+  else if (!play) msg = "Waiting for the dominoes to be entered.";
+  else if (!isPerson(state.active)) msg = `${tag(state.active)} <span class="thinking">is thinking</span>`;
+  else {
+    const who = people().length > 1 ? `${tag(state.active)} your turn` : "Your turn";
+    if (selected === null) msg = `${who}: pick a domino from the draw pile.`;
+    else if (discards(selected)) {
+      msg = "No domino fits in your kingdom: taking this one discards it.";
+      place.disabled = busy;
+      place.textContent = "Take and discard";
+    } else if (preview === null) msg = "Click a highlighted square to place the domino there.";
+    else {
+      const turning = movesFor(selected).filter(([t]) => covers(t, anchor)).length;
+      msg = turning > 1 ? "Click the square again or press R to turn it." : "Place it here, or click another square.";
+      place.disabled = busy;
+    }
+  }
+  $("msg").innerHTML = msg;
+  renderAnalysis();
+}
+
+// Selects a move from the list of moves
+function choose(i) {
+  selected = state.turns[i][0];
+  preview = state.turns[i][1].length ? i : null;
+  anchor = preview === null ? null : key(state.turns[i][1][0][0], state.turns[i][1][0][1]);
+  render();
+  analyseSelected();
+}
+
+// Clicking a square previews a move covering it; clicking it again turns the domino
+function clickSquare(k) {
+  if (!ourTurn() || selected === null) return;
+  const options = movesFor(selected).filter(([t]) => covers(t, k)).map(([, i]) => i);
+  if (options.length === 0) return;
+  const at = options.indexOf(preview);
+  preview = anchor === k && at >= 0 ? options[(at + 1) % options.length] : options[0];
+  anchor = k;
+  render();
+  analyseSelected();
+}
+
+// Arrow keys step through placements like the terminal version: left and right
+// run on into the next domino, up and down switch domino
+function step(dx, dy) {
+  if (!ourTurn()) return;
+  const list = choices();
+  const current = preview ?? (selected !== null ? movesFor(selected)[0]?.[1] : null);
+  let d = current === null || current === undefined ? -1 : list.findIndex(([, moves]) => moves.includes(current));
+  if (d < 0) return choose(list[0][1][0]);
+  let k = list[d][1].indexOf(current);
+  const n = list.length;
+  if (dy) { d = (d + dy + n) % n; k = 0; }
+  else if (dx > 0) { k++; if (k === list[d][1].length) { d = (d + 1) % n; k = 0; } }
+  else { if (k === 0) { d = (d - 1 + n) % n; k = list[d][1].length - 1; } else k--; }
+  choose(list[d][1][k]);
+}
+
+// Shows the next state; `moved` when it follows a move rather than a deal
+async function update(next, moved = false) {
+  const id = game;
+  if (moved) {
+    const p = state.active;
+    const had = new Set(state.boards[p].map(s => key(s[0], s[1])));
+    moves.push({ player: p, squares: next.boards[p].filter(s => !had.has(key(s[0], s[1]))) });
+  }
+  state = next;
+  selected = preview = anchor = null;
+  analysis.top = null;
+  analysis.stats = new Map();
+  analysis.version++;
+  render();
+  if (state.phase === "over") return showResults();
+  if (state.phase === "play" && !isPerson(state.active)) {
+    busy = true;
+    const start = performance.now();
+    const reply = await call("bot_move", setup.seats[state.active].bot);
+    // Give the move a moment so it can be seen
+    await new Promise(r => setTimeout(r, Math.max(0, BOT_DELAY - (performance.now() - start))));
+    if (id !== game) return;
+    busy = false;
+    update(reply, true);
+  } else if (ourTurn()) {
+    analyse();
+  }
+}
+
+async function confirm() {
+  if (!ourTurn() || selected === null) return;
+  const i = preview ?? (discards(selected) ? movesFor(selected)[0][1] : null);
+  if (i === null) return;
+  const id = game;
+  const mover = state.active;
+  busy = true;
+  render();
+  const reply = await call("play", i);
+  if (id !== game) return;
+  busy = false;
+  // Counting the move about to be logged
+  seenAt[mover] = moves.length + 1;
+  lastPerson = mover;
+  update(reply, true);
+}
+
+async function newGame() {
+  const id = ++game;
+  busy = true;
+  $("over").classList.remove("show");
+  if ($("setup").open) $("setup").close();
+  $("game").hidden = false;
+  $("final").hidden = true;
+  $("to-setup").hidden = $("info-open").hidden = false;
+  $("filter").value = "";
+  state = null;
+  moves = [];
+  lastPerson = null;
+  selected = preview = anchor = null;
+  // Drops any analysis of the old game still on its way
+  analysis.on = false;
+  analysis.version++;
+  $("rules").innerHTML = [
+    "Each area of one landscape scores its squares × its crowns.",
+    "Kingdoms are at most 5 × 5.",
+    setup.middle && "+10 for ending with the castle in the centre (Middle Kingdom).",
+    setup.harmony && "+5 for a full 5 × 5 kingdom (Harmony).",
+  ].filter(Boolean).map(r => `<li>${r}</li>`).join("");
+  const seed = crypto.getRandomValues(new Uint32Array(2));
+  const reply = await call("new_game", setup.players, setup.middle, setup.harmony, setup.entered, seed[0], seed[1]);
+  if (id !== game) return;
+  seenAt = {};
+  for (const p of people()) seenAt[p] = 0;
+  busy = false;
+  update(reply);
+}
+
+function showResults() {
+  const order = [...Array(state.players).keys()].sort((a, b) => state.scores[b] - state.scores[a]);
+  const best = state.scores[order[0]];
+  const winners = order.filter(p => state.scores[p] === best).map(p => tag(p));
+  $("over-title").innerHTML = winners.length > 1 ? `${winners.join(" and ")} tie` : `${winners[0]} wins`;
+  $("results").innerHTML = order.map((p, i) => {
+    const [mk, harmony] = state.bonuses[p];
+    const notes = [mk && "+10 Middle Kingdom", harmony && "+5 Harmony"].filter(Boolean).join(", ");
+    const place = order.findIndex(q => state.scores[q] === state.scores[p]) + 1;
+    return `<div class="result"><span class="place">${place}</span>
+      <div><div>${tag(p)}</div><div class="sub">${notes}</div></div>
+      <div class="board tiny" data-p="${p}"></div><b>${state.scores[p]}</b></div>`;
+  }).join("");
+  for (const p of order) drawBoard($("results").querySelector(`[data-p="${p}"]`), state.boards[p]);
+  $("over").classList.add("show");
+
+  // The full size kingdoms, for View boards
+  $("final-title").innerHTML = $("over-title").innerHTML;
+  $("finals").innerHTML = order.map(p => {
+    const [mk, harmony] = state.bonuses[p];
+    const notes = [mk && "+10 Middle Kingdom", harmony && "+5 Harmony"].filter(Boolean).join(", ");
+    const place = order.findIndex(q => state.scores[q] === state.scores[p]) + 1;
+    return `<div class="panel">
+      <div class="title"><h2><span class="place">${place}</span>${tag(p)}</h2><b>${state.scores[p]}</b></div>
+      <div class="board" data-p="${p}"></div><div class="sub" style="margin-top:8px">${notes || "&nbsp;"}</div></div>`;
+  }).join("");
+  for (const p of order) drawBoard($("finals").querySelector(`[data-p="${p}"]`), state.boards[p]);
+}
+
+function showFinal(show) {
+  $("over").classList.toggle("show", !show);
+  $("final").hidden = !show;
+  $("game").hidden = show;
+}
+
+/* ---------- Analysis ---------- */
+
+// The moves the analyst rates best, then the selected move if it isn't one of them
+async function analyse() {
+  if (!analysis.on || !ourTurn() || analysis.top) return;
+  const version = analysis.version;
+  analysis.asking = true;
+  const top = await call("top_moves", analysis.analyst);
+  analysis.asking = false;
+  if (version !== analysis.version) return;
+  analysis.top = top.map(([i]) => i);
+  for (const [i, places, scores] of top) analysis.stats.set(i, { places, scores });
+  renderAnalysis();
+  analyseSelected();
+}
+
+async function analyseSelected() {
+  const i = preview ?? (selected !== null && discards(selected) ? movesFor(selected)[0][1] : null);
+  if (!analysis.on || !analysis.top || analysis.asking || i === null || analysis.stats.has(i)) return;
+  const version = analysis.version;
+  analysis.asking = true;
+  const [, places, scores] = await call("evaluate", i, analysis.analyst);
+  analysis.asking = false;
+  if (version !== analysis.version) return;
+  analysis.stats.set(i, { places, scores });
+  renderAnalysis();
+  // The selection may have moved on while this one was analysed
+  analyseSelected();
+}
+
+function renderAnalysis() {
+  const section = $("analysis");
+  section.hidden = !state || state.phase !== "play" || !isPerson(state.active);
+  if (section.hidden) return;
+  $("a-on").checked = analysis.on;
+  $("a-analyst").innerHTML = ANALYSTS.map((a, i) => `<option value="${i}" ${i === analysis.analyst ? "selected" : ""}>${a}</option>`).join("");
+  $("a-by").hidden = !analysis.on;
+  const body = $("a-body");
+  if (!analysis.on) { body.innerHTML = ""; return; }
+  if (!analysis.top) { body.innerHTML = '<p class="sub thinking">Analysing</p>'; return; }
+
+  const me = state.active;
+  const current = preview ?? (selected !== null && discards(selected) ? movesFor(selected)[0][1] : null);
+  const places = ["1st", "2nd", "3rd", "4th"].slice(0, state.players);
+  const row = (rank, i) => {
+    const stats = analysis.stats.get(i);
+    const [pos] = state.turns[i];
+    const cells = stats
+      ? places.map((_, k) => `<td>${Math.round(stats.places[k] * 100)}%</td>`).join("") + `<td>${stats.scores[me].toFixed(1)}</td>`
+      : `<td colspan="${places.length + 1}" class="sub thinking">Analysing</td>`;
+    return `<tr data-i="${i}" class="${i === current ? "current" : ""}"><td>${rank}</td><td>${halves(state.pile[pos][0])}</td><td>${placement(i)}</td>${cells}</tr>`;
+  };
+  let rows = analysis.top.map((i, r) => row(r + 1, i)).join("");
+  if (current !== null && !analysis.top.includes(current)) rows += row("–", current);
+  const chosen = current !== null && analysis.stats.get(current);
+  const predicted = chosen
+    ? `<div class="predicted">Predicted final scores after the selected move: ${[...Array(state.players).keys()]
+        .map(p => `${tag(p)} ${chosen.scores[p].toFixed(1)}`).join(" &nbsp; ")}</div>`
+    : "";
+  body.innerHTML = `<table><thead><tr><th>#</th><th>Domino</th><th>Placement</th>${places.map(p => `<th>${p}</th>`).join("")}<th>Avg score</th></tr></thead>
+    <tbody>${rows}</tbody></table>${predicted}
+    <div class="keys">Chance you finish in each place, from games simulated the way ${ANALYSTS[analysis.analyst]} plays them. Click a move or press <kbd>1</kbd>–<kbd>${TOP}</kbd> to select it; <kbd>B</kbd> changes the analyst.</div>`;
+}
+
+function setAnalyst(i) {
+  analysis.analyst = i;
+  store.set("analyst", i);
+  analysis.top = null;
+  analysis.stats = new Map();
+  analysis.version++;
+  renderAnalysis();
+  analyse();
+}
+
+$("a-on").addEventListener("change", e => toggleAnalysis(e.target.checked));
+$("a-analyst").addEventListener("change", e => setAnalyst(+e.target.value));
+$("a-body").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-i]");
+  if (tr && ourTurn()) choose(+tr.dataset.i);
+});
+function toggleAnalysis(on) {
+  analysis.on = on;
+  renderAnalysis();
+  analyse();
+}
+
+/* ---------- Real set ---------- */
+
+function renderDealer() {
+  const dealing = state.phase === "setaside" || state.phase === "deal";
+  const firstPile = state.phase === "deal" && state.pile.length === 0;
+  const showChosen = state.chosen_aside.length > 0 && firstPile;
+  $("dealer").hidden = !dealing;
+  if (!dealing) return;
+  const size = state.players === 3 ? 3 : 4;
+  if (state.phase === "setaside") {
+    const total = 48 - 12 * state.players;
+    $("deal-msg").innerHTML = `<strong>${total} dominoes are set aside in a ${state.players} player game.</strong> Click the ones you take out of the box (${state.set_aside} left), or let the game choose them.`;
+  } else {
+    $("deal-msg").innerHTML = `<strong>Round ${state.round} of ${state.rounds}:</strong> draw ${size} dominoes from the box and click each one below (${size - state.pending.length} left).`;
+  }
+  $("choose-aside").hidden = state.phase !== "setaside";
+  $("undeal").hidden = state.phase !== "deal" || state.pending.length === 0;
+  $("chosen").innerHTML = showChosen
+    ? `<div class="sub">Take these dominoes out of the box before you start:</div><div class="chosen">${state.chosen_aside.map(n => `<span class="domino"><span class="num">${n}</span>${halves(n)}</span>`).join("")}</div>`
+    : "";
+  $("pending").hidden = state.phase !== "deal";
+  $("pending").innerHTML = state.pending.length
+    ? `<span class="sub">Draw pile so far:</span>${state.pending.map(n => `<span class="domino"><span class="num">${n}</span>${halves(n)}</span>`).join("")}`
+    : "";
+  renderPicker();
+}
+
+// Dominoes still in the box, filtered by tile number or landscape name
+function renderPicker() {
+  const q = $("filter").value.trim().toLowerCase();
+  const match = num => {
+    if (!q) return true;
+    if (String(num).startsWith(q)) return true;
+    const [a, b] = DOMINOES[num - 1];
+    return [a, b].some(l => LANDS[l].toLowerCase().startsWith(q));
+  };
+  $("picker").innerHTML = state.deck.filter(match)
+    .map(n => `<button class="domino" data-n="${n}"><span class="num">${n}</span>${halves(n)}</button>`).join("")
+    || '<span class="sub">No dominoes match.</span>';
+}
+
+async function dealerCall(fn, ...args) {
+  if (busy) return;
+  const id = game;
+  busy = true;
+  const reply = await call(fn, ...args);
+  if (id !== game) return;
+  busy = false;
+  if (reply.phase === "play" || reply.phase === "over") $("filter").value = "";
+  update(reply);
+}
+
+$("picker").addEventListener("click", e => {
+  const b = e.target.closest("[data-n]");
+  if (b) dealerCall(state.phase === "setaside" ? "set_aside" : "deal", +b.dataset.n - 1);
+});
+$("filter").addEventListener("input", renderPicker);
+$("filter").addEventListener("keydown", e => {
+  // Enter takes the domino when the filter leaves one
+  const only = $("picker").querySelectorAll("[data-n]");
+  if (e.key === "Enter" && only.length === 1) { only[0].click(); $("filter").value = ""; }
+  e.stopPropagation();
+});
+$("choose-aside").addEventListener("click", () => dealerCall("choose_set_aside"));
+$("undeal").addEventListener("click", () => dealerCall("undeal"));
+
+/* ---------- Events ---------- */
+
+$("pile").addEventListener("click", e => {
+  const d = e.target.closest(".domino");
+  if (!d || d.disabled || !ourTurn()) return;
+  const pos = +d.dataset.pos;
+  if (selected === pos) return;
+  selected = pos;
+  preview = anchor = null;
+  render();
+  analyseSelected();
+});
+$("focus-board").addEventListener("click", e => {
+  const cell = e.target.closest(".cell");
+  if (cell) clickSquare(cell.dataset.k);
+});
+$("place").addEventListener("click", confirm);
+$("setup-close").addEventListener("click", () => $("setup").close());
+// With no game behind it the setup can't be dismissed
+$("setup").addEventListener("cancel", e => { if (!state) e.preventDefault(); });
+$("info-open").addEventListener("click", () => $("info").showModal());
+$("info-close").addEventListener("click", () => $("info").close());
+$("again").addEventListener("click", newGame);
+$("to-setup").addEventListener("click", showSetup);
+$("over-setup").addEventListener("click", showSetup);
+$("over-close").addEventListener("click", () => showFinal(true));
+$("final-results").addEventListener("click", () => showFinal(false));
+$("final-again").addEventListener("click", newGame);
+$("final-setup").addEventListener("click", showSetup);
+document.addEventListener("keydown", e => {
+  if ($("game").hidden || document.querySelector("dialog[open]") || e.target.matches("input[type=text], select") || e.ctrlKey || e.metaKey || e.altKey) return;
+  const keys = {
+    Enter: confirm,
+    ArrowLeft: () => step(-1, 0), ArrowRight: () => step(1, 0),
+    ArrowUp: () => step(0, -1), ArrowDown: () => step(0, 1),
+    r: () => preview !== null && clickSquare(anchor),
+    Escape: () => { selected = preview = anchor = null; if (state) render(); },
+    a: () => ourTurn() && toggleAnalysis(!analysis.on),
+    b: () => ourTurn() && analysis.on && setAnalyst((analysis.analyst + 1) % ANALYSTS.length),
+  };
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (keys[k]) { e.preventDefault(); keys[k](); }
+  else if (/^[1-9]$/.test(k) && analysis.on && analysis.top && ourTurn()) {
+    const i = analysis.top[+k - 1];
+    if (i !== undefined) choose(i);
+  }
+});
+
+
+(async () => {
+  const bytes = Uint8Array.from(atob(WASM), c => c.charCodeAt(0));
+  worker.postMessage({ module: await WebAssembly.compile(bytes) });
+  DOMINOES = await call("dominoes");
+  $("loading").remove();
+  showSetup();
+})();
+</script>
+</body>
+</html>

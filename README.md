@@ -2,7 +2,9 @@
 This project contains several high performance AI bots for the board game Kingdomino
 
 ## Usage
-To play against an AI bot simply download the latest release of the project. 
+**[Play in your browser](https://chasehbehrens.github.io/Kingdomino_AI/)**: nothing to install, and everything runs on your own computer.
+
+To play in the terminal instead, download the latest release of the project. 
 MCE Heuristic is the strongest AI bot included. 
 <img width="1358" height="525" alt="image" src="https://github.com/user-attachments/assets/b7e0a0dd-3508-4130-a068-75b6e8b3fe37" />
 

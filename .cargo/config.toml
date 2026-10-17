@@ -1,2 +1,6 @@
 [build]
 rustflags = ["-C", "target-cpu=native"]
+
+# There is no native CPU to tune for in a browser, but every current one has SIMD
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "target-feature=+simd128"]

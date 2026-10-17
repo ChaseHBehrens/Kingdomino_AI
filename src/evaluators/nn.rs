@@ -26,6 +26,11 @@ pub fn load_weights(path: &str) -> bool {
     let Ok(bytes) = std::fs::read(path) else {
         return false;
     };
+    load_weights_from_bytes(&bytes, path)
+}
+
+/// Loads weights already in memory; `source` names them in errors
+pub fn load_weights_from_bytes(bytes: &[u8], source: &str) -> bool {
     let floats: Vec<f32> = bytes
         .chunks_exact(4)
         .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
@@ -34,7 +39,7 @@ pub fn load_weights(path: &str) -> bool {
     let expected: usize = (0..4).map(|k| DIMS[k] * DIMS[k + 1] + DIMS[k + 1]).sum();
     if floats.len() != expected {
         eprintln!(
-            "{path}: expected {expected} floats, found {}; does DIMS match the Python model?",
+            "{source}: expected {expected} floats, found {}; does DIMS match the Python model?",
             floats.len()
         );
         return false;

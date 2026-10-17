@@ -1,3 +1,4 @@
+#[cfg(target_feature = "bmi2")]
 use std::arch::x86_64::_pdep_u64;
 use crate::rng::rng;
 

@@ -3,6 +3,7 @@ name = "kingdomino_ai"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
+# The terminal interface; the web demo builds the library without it
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 crossterm = "0.29"
 inquire = "0.9.4"
