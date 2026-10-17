@@ -95,16 +95,14 @@ All games were played with the Middle Kingdom and Harmony rules, 100 games per p
 In the head to head tables, each cell shows how often the row bot outscores the column bot (ties count half), followed by the average margin.
 
 <div align="center">
+
 #### 4 players
+
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
 | MCE Heuristic | 60.96 ± 0.89 | 47.0% | 1.75 |
 | Greedy | 40.61 ± 0.84 | 1.5% | 3.58 |
 | MCE Race | 55.25 ± 0.80 | 26.3% | 2.17 |
-
-</div>
-
-<div align="center">
 
 | | MCE Heuristic | Greedy | MCE Race |
 |:--|:-:|:-:|:-:|
@@ -115,16 +113,14 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 </div>
 
 <div align="center">
+
 #### 3 players
+
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
 | MCE Heuristic | 58.04 ± 0.94 | 68.5% | 1.32 |
 | Greedy | 35.83 ± 0.87 | 0.0% | 2.93 |
 | MCE Race | 49.19 ± 0.95 | 31.5% | 1.75 |
-
-</div>
-
-<div align="center">
 
 | | MCE Heuristic | Greedy | MCE Race |
 |:--|:-:|:-:|:-:|
@@ -135,16 +131,14 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 </div>
 
 <div align="center">
+
 #### 2 players
+
 | Bot | Score | 1st place | Avg place |
 |:--|--:|--:|--:|
 | MCE Heuristic | 57.07 ± 1.23 | 97.8% | 1.02 |
 | Greedy | 29.13 ± 0.95 | 0.0% | 2.00 |
 | MCE Race | 36.91 ± 0.99 | 52.3% | 1.48 |
-
-</div>
-
-<div align="center">
 
 | | MCE Heuristic | Greedy | MCE Race |
 |:--|:-:|:-:|:-:|
