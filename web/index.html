@@ -24,6 +24,11 @@
   --accent-edge: color-mix(in srgb, var(--accent) 55%, #000);
   --accent-ink: #2b2620;
   --crown: #e8a90c;
+  /* Squares a domino can go: in light mode the same shade as the bots' board backing, dark grey in dark mode */
+  --target: color-mix(in srgb, var(--slot) 70%, transparent);
+  --target-hover: color-mix(in srgb, var(--slot) 90%, #000);
+  /* Frames around the previewed domino and the bots' recent ones: dark in light mode, castle grey in dark mode */
+  --frame: #3a3734;
   --cell: min(60px, calc((100vw - 80px) / 9));
   --small: min(28px, calc((100vw - 80px) / 9));
   --tiny: 20px;
@@ -32,11 +37,15 @@
   :root:not([data-theme="light"]) {
     --bg: #1c1a17; --panel: #262320; --ink: #eee6d8; --muted: #a39886;
     --line: #3d3832; --slot: #302c27;
+    --target: color-mix(in srgb, var(--accent) 26%, #000); --target-hover: color-mix(in srgb, var(--accent) 40%, #000);
+    --frame: var(--accent);
   }
 }
 :root[data-theme="dark"] {
   --bg: #1c1a17; --panel: #262320; --ink: #eee6d8; --muted: #a39886;
   --line: #3d3832; --slot: #302c27;
+  --target: color-mix(in srgb, var(--accent) 26%, #000); --target-hover: color-mix(in srgb, var(--accent) 40%, #000);
+    --frame: var(--accent);
 }
 * { box-sizing: border-box; }
 body {
@@ -138,15 +147,16 @@ main {
 .small .tile svg.ico, .tiny .tile svg.ico { display: none; }
 .cell { border-radius: 4px; position: relative; }
 .board.small, .board.tiny { width: fit-content; margin: 0 auto; background: color-mix(in srgb, var(--slot) 70%, transparent); padding: 3px; border-radius: 6px; }
-.cell.target { background: color-mix(in srgb, var(--accent) 26%, #000); cursor: pointer; }
-.cell.target:hover { background: color-mix(in srgb, var(--accent) 40%, #000); }
-/* The previewed domino stays solid; only a frame around it flashes */
-.ghost-frame { border: 3px solid var(--accent); border-radius: 6px; margin: -2px; pointer-events: none; z-index: 1; animation: pulse 1.1s ease-in-out infinite; }
-.cell.ghost { cursor: pointer; }
-@keyframes pulse { 50% { border-color: transparent; } }
-/* The castle grey band gets a thin dark edge either side, so it shows on light backgrounds too */
-.fresh-frame { border: 3px solid var(--accent); border-radius: 6px; margin: -2px; pointer-events: none; z-index: 1; box-shadow: 0 0 0 1px #0007, inset 0 0 0 1px #0007; }
-.small .fresh-frame { border-width: 2px; border-radius: 4px; margin: -1px; }
+.cell.target { background: var(--target); cursor: pointer; }
+.cell.target:hover { background: var(--target-hover); }
+/* A filled box behind the previewed domino flashes; it shows around the tiles and between them */
+.ghost-frame { background: var(--frame); border-radius: 8px; margin: -4px; pointer-events: none; z-index: 0; animation: pulse 1.1s ease-in-out infinite; }
+.cell.ghost { cursor: pointer; z-index: 1; }
+@keyframes pulse { 50% { opacity: .15; } }
+/* The bots' recent dominoes get the same box behind them, held still */
+.fresh-frame { background: var(--frame); border-radius: 8px; margin: -4px; pointer-events: none; z-index: 0; }
+.small .fresh-frame { border-radius: 5px; margin: -2px; }
+.cell.fresh { z-index: 1; }
 .placed .tile { animation: drop .35s ease-out; }
 @keyframes drop { from { transform: scale(1.25); opacity: .3; } }
 .others { display: flex; flex-direction: column; gap: 16px; }
@@ -475,7 +485,7 @@ function drawBoard(el, squares, opts = {}) {
       const cls = ["cell"];
       if (ghost.has(k)) cls.push("ghost");
       if (opts.targets?.has(k)) cls.push("target");
-      if (fresh.has(k) && opts.animate) cls.push("placed");
+      if (fresh.has(k)) cls.push("fresh", opts.animate ? "placed" : "");
       // Placed explicitly so the preview frame below can overlap the squares
       html += `<div class="${cls.join(" ")}" data-k="${k}" style="grid-area: ${hi[0] - r + 1} / ${c - lo[1] + 1}">${s ? tile(s[2], s[3]) : ""}</div>`;
     }
