@@ -31,7 +31,7 @@ There are several aspects of this game that make it an interesting problem.
 This project uses Monte Carlo evaluation search combined with heuristic functions. 
 Monte Carlo evaluation has been found to perform well for the game of Kingdomino. 
 To enable high performance board states are represented using bit boards. 
-This enables a board to be stored in 4 bytes. Possible moves can be generated using simple bit manipulations.  
+This enables a board to be stored in 32 bytes. Possible moves can be generated using simple bit manipulations.  
 This allows for the analysis of thousands of positions in milliseconds.
 
 Claude Opus 5.5 was used to generate code for three areas of the project.
