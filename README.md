@@ -151,12 +151,12 @@ In the head to head tables, each cell shows how often the row bot outscores the 
 </div>
 
 ## Improvements
-In my implementation placement it determined when choosing a tile for simplicity. 
+In my implementation placement it decided when choosing a tile for simplicity. 
 In the official rules the next set of dominoes is revealed before placement is decided. 
 Adding this additional information would probably improve play. Improvements could probably be made to the heuristic functions and search. 
 Additionally, I believe reinforcement learning techniques could be used to build better evaluators. 
 However, in my implementations self play neural network heuristics performed worse than 
-manual heuristics and were too slow to be reliably used inside of MCE evaluation. 
+manual heuristics and were too slow to be reliably used inside of MCE search. 
 
 ## References
 This implementation builds upon research on statistical evaluation and Monte Carlo methods in Kingdomino:
